@@ -1,0 +1,71 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# SQLite Databases & Local Storage
+*.sqlite
+*.sqlite3
+*.db
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+
+# Processed Data Artifacts (gerados pelos pipelines)
+data/processed/
+data/processed_neural/*.joblib
+
+# Pesos binários pesados de modelos (manter metadados JSON)
+models/*.joblib
+models/**/*.pt
+
+# Unit test / coverage
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# IDE & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

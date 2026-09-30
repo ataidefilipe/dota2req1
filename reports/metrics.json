@@ -1,0 +1,8 @@
+{
+  "n_samples": 617,
+  "n_train": 493,
+  "n_test": 124,
+  "train_log_loss": 0.24029613368544112,
+  "test_log_loss": 0.9327056184986833,
+  "test_accuracy": 0.5967741935483871
+}

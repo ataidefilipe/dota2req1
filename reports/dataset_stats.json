@@ -1,0 +1,29 @@
+{
+  "matches_by_dataset": {
+    "pro": 617
+  },
+  "radiant_win_rate": 0.4846029173419773,
+  "total_matches": 617,
+  "duration_minutes": {
+    "min": 21.8,
+    "avg": 39.59,
+    "max": 98.07
+  },
+  "matches_by_patch": {
+    "59": 617
+  },
+  "player_telemetry": {
+    "total_players_recorded": 6170,
+    "players_with_rank_tier": 4104,
+    "rank_tier_coverage_pct": 66.52,
+    "players_with_computed_mmr": 2710,
+    "computed_mmr_coverage_pct": 43.92,
+    "avg_computed_mmr": 4159.34
+  },
+  "time_range": {
+    "start_timestamp": 1768408030,
+    "start_utc": "2026-01-14 16:27:10 UTC",
+    "end_timestamp": 1771620603,
+    "end_utc": "2026-02-20 20:50:03 UTC"
+  }
+}
