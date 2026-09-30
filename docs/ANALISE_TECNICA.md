@@ -135,8 +135,9 @@ flowchart TD
 | **DEB-02** | `src/db/repo.py` | **Média** | `insert_draft_events` e `insert_players` não limpavam dados anteriores em reingestão. | Duplicação de registros em reexecuções parciais. | **RESOLVIDO**: Adicionado `DELETE FROM ... WHERE match_id = ?` garantindo idempotência estrita. |
 | **FEAT-01**| `src/db/schema.py` & `repo.py` | **Média** | Ausência de captura de habilidade/MMR dos jogadores. | Impossibilidade de analisar disparidade de elo/MMR no draft. | **IMPLEMENTADO**: Adicionadas colunas `rank_tier` e `computed_mmr` em `match_players`. |
 | **ML-01** | `src/model/train.py` | **Alta** | Volume de amostras insuficiente (92 partidas para centenas de features). | Severo sobreajuste (Log Loss Teste = 0.8032). | **PENDENTE**: Ingerir 5.000+ partidas e ajustar regularização ($C \le 0.1$). |
-| **GOV-01** | Repositório | **Baixa** | Repositório Git não inicializado. | Ausência de versionamento e rastreabilidade de alterações. | **PENDENTE**: Inicializar Git e criar `.gitignore`. |
-| **GOV-02** | `requirements.txt` | **Baixa** | Dependências sem pinned versions (versões fixadas). | Quebras futuras por atualizações incompatíveis de dependências. | **PENDENTE**: Fixar versões das bibliotecas. |
+| **GOV-01** | Repositório | **Baixa** | Repositório Git não inicializado. | Ausência de versionamento e rastreabilidade de alterações. | **RESOLVIDO**: Repositório Git inicializado com `.gitignore` completo e commit inicial criado. |
+| **GOV-02** | `requirements.txt` | **Baixa** | Dependências sem pinned versions (versões fixadas). | Quebras futuras por atualizações incompatíveis de dependências. | **RESOLVIDO**: Dependências fixadas com versões exatas instaladas. |
+
 
 
 ---
