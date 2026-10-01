@@ -1,8 +1,8 @@
 {
-  "n_samples": 1117,
-  "n_train": 893,
-  "n_test": 224,
-  "train_log_loss": 0.36543642975943363,
-  "test_log_loss": 0.9776131565683589,
-  "test_accuracy": 0.5401785714285714
+  "n_samples": 1617,
+  "n_train": 1293,
+  "n_test": 324,
+  "train_log_loss": 0.462337924642909,
+  "test_log_loss": 0.8922742522549486,
+  "test_accuracy": 0.5802469135802469
 }
