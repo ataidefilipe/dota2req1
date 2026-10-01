@@ -24,7 +24,7 @@ class OpenDotaClient:
             time.sleep(sleep_time)
         self.last_request_time = time.time()
 
-    def get(self, endpoint: str, params: dict = None, retries: int = 3):
+    def get(self, endpoint: str, params: dict = None, retries: int = 5):
         """
         Executes a GET request with throttling and retries.
         """
@@ -36,7 +36,7 @@ class OpenDotaClient:
         for attempt in range(retries):
             self._throttle()
             try:
-                response = self.session.get(url, params=params, timeout=10)
+                response = self.session.get(url, params=params, timeout=15)
                 
                 # Rate limit hit
                 if response.status_code == 429:
@@ -45,10 +45,11 @@ class OpenDotaClient:
                     time.sleep(wait)
                     continue
                 
-                # Server errors
+                # Server errors (500, 502, 503, 504)
                 if 500 <= response.status_code < 600:
-                    self.logger.warning(f"Server error {response.status_code} on {url}. Retry {attempt+1}/{retries}")
-                    time.sleep(2 ** attempt) # Exponential backoff
+                    wait_time = min(2 ** (attempt + 1), 30)
+                    self.logger.warning(f"Server error {response.status_code} on {url}. Retry {attempt+1}/{retries} in {wait_time}s...")
+                    time.sleep(wait_time)
                     continue
                 
                 response.raise_for_status()
@@ -57,7 +58,8 @@ class OpenDotaClient:
             except requests.RequestException as e:
                 self.logger.error(f"Request failed: {e}")
                 if attempt == retries - 1:
-                    raise
-                time.sleep(1)
+                    return None
+                time.sleep(min(2 ** attempt, 10))
+
         
         return None
