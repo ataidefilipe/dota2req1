@@ -72,9 +72,12 @@ def train_neural_network(
     reports_dir: str = 'reports',
     epochs: int = 100,
     batch_size: int = 32,
-    lr: float = 1e-3,
-    weight_decay: float = 1e-2,
-    patience: int = 15,
+    lr: float = 3e-4,
+    weight_decay: float = 0.02,
+    dropout: float = 0.20,
+    label_smoothing: float = 0.06,
+    augment_symmetry: bool = True,
+    patience: int = 20,
     seed: int = 42
 ):
     torch.manual_seed(seed)
@@ -91,7 +94,8 @@ def train_neural_network(
 
     logger.info(
         f"Dados carregados: Treino={len(train_loader.dataset)}, "
-        f"Validação={len(val_loader.dataset)}, Teste={len(test_loader.dataset)}"
+        f"Validação={len(val_loader.dataset)}, Teste={len(test_loader.dataset)} "
+        f"(Augment Simetria: {augment_symmetry} | Label Smoothing: {label_smoothing})"
     )
 
     # 2. Inicializar Modelo
@@ -102,7 +106,7 @@ def train_neural_network(
         'hero_dim': 32,
         'patch_dim': 8,
         'rank_dim': 8,
-        'dropout': 0.15
+        'dropout': dropout
     }
 
     model = DotaWinPredictorNN(**model_config).to(device)
@@ -114,6 +118,7 @@ def train_neural_network(
 
     # 3. Loop de Treinamento com Early Stopping
     best_val_loss = float('inf')
+    best_val_score = -float('inf')
     best_weights = None
     epochs_no_improve = 0
     history = []
@@ -127,59 +132,93 @@ def train_neural_network(
 
         for batch in train_loader:
             batch_dev = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-            optimizer.zero_grad()
+            
+            # Aumento de dados por simetria (inverte lados Radiant e Dire e o target)
+            if augment_symmetry:
+                swapped = {
+                    'picks': torch.stack([batch_dev['picks'][:, 1], batch_dev['picks'][:, 0]], dim=1),
+                    'bans': torch.stack([batch_dev['bans'][:, 1], batch_dev['bans'][:, 0]], dim=1),
+                    'bans_mask': torch.stack([batch_dev['bans_mask'][:, 1], batch_dev['bans_mask'][:, 0]], dim=1),
+                    'bans_available': torch.stack([batch_dev['bans_available'][:, 1], batch_dev['bans_available'][:, 0]], dim=1),
+                    'ranks': torch.stack([batch_dev['ranks'][:, 1], batch_dev['ranks'][:, 0]], dim=1),
+                    'mmr': torch.stack([batch_dev['mmr'][:, 1], batch_dev['mmr'][:, 0]], dim=1),
+                    'skill_masks': torch.stack([batch_dev['skill_masks'][:, 1], batch_dev['skill_masks'][:, 0]], dim=1),
+                    'patch': batch_dev['patch'],
+                    'target': 1.0 - batch_dev['target'],
+                    'match_ids': batch_dev['match_ids']
+                }
+                train_batch = {
+                    k: torch.cat([batch_dev[k], swapped[k]], dim=0) if isinstance(batch_dev[k], torch.Tensor) else batch_dev[k]
+                    for k in batch_dev
+                }
+            else:
+                train_batch = batch_dev
 
-            logits = model(batch_dev)
-            loss = criterion(logits, batch_dev['target'])
+            optimizer.zero_grad()
+            logits = model(train_batch)
+            targets = train_batch['target']
+
+            # Label smoothing para evitar super-confiança em esports
+            if label_smoothing > 0.0:
+                targets_smooth = targets * (1.0 - 2.0 * label_smoothing) + label_smoothing
+            else:
+                targets_smooth = targets
+
+            loss = criterion(logits, targets_smooth)
             loss.backward()
 
             # Gradient Clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-            train_loss_accum += loss.item() * len(batch_dev['target'])
-            train_samples += len(batch_dev['target'])
+            train_loss_accum += loss.item() * len(targets)
+            train_samples += len(targets)
 
         scheduler.step()
 
         train_loss = train_loss_accum / max(train_samples, 1)
 
-        # Avaliar na Validação
+        # Avaliar na Validação (com targets reais e sem alteração)
         val_eval = evaluate_model(model, val_loader, criterion, device)
         val_loss = val_eval['loss']
         val_acc = val_eval['accuracy']
+        val_auc = val_eval['roc_auc']
 
         history.append({
             'epoch': epoch,
             'train_loss': round(train_loss, 4),
             'val_loss': round(val_loss, 4),
             'val_acc': round(val_acc, 4),
+            'val_auc': round(val_auc, 4),
             'lr': float(scheduler.get_last_lr()[0])
         })
 
-        if epoch % 5 == 0 or val_loss < best_val_loss:
+        is_best = val_auc > best_val_score
+        if is_best:
+            best_val_score = val_auc
+            best_val_loss = val_loss
+            best_weights = copy.deepcopy(model.state_dict())
+            epochs_no_improve = 0
+
+        if epoch % 5 == 0 or is_best:
             logger.info(
                 f"Época [{epoch:03d}/{epochs:03d}] | "
                 f"Treino Loss: {train_loss:.4f} | "
                 f"Val Loss: {val_loss:.4f} | "
-                f"Val Acc: {val_acc:.4f}"
+                f"Val Acc: {val_acc * 100:.1f}% | "
+                f"Val AUC: {val_auc:.4f}" + (" [*]" if is_best else "")
             )
 
-        # Early Stopping check
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_weights = copy.deepcopy(model.state_dict())
-            epochs_no_improve = 0
-        else:
+        if not is_best:
             epochs_no_improve += 1
             if epochs_no_improve >= patience:
-                logger.info(f"Early Stopping acionado após {epoch} épocas sem melhora na validação.")
+                logger.info(f"Early Stopping acionado após {epoch} épocas sem melhora no Val AUC.")
                 break
 
     # Restaurar melhores pesos
     if best_weights is not None:
         model.load_state_dict(best_weights)
-        logger.info(f"Melhor checkpoint restaurado com Val Loss: {best_val_loss:.4f}")
+        logger.info(f"Melhor checkpoint restaurado com Val AUC: {best_val_score:.4f} (Val Loss: {best_val_loss:.4f})")
 
     # 4. Calibração de Probabilidades (Temperature Scaling)
     val_final_eval = evaluate_model(model, val_loader, criterion, device)
@@ -259,9 +298,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Treinamento da Rede Neural Dota 2 Win Predictor")
     parser.add_argument("--epochs", type=int, default=100, help="Máximo de épocas de treino")
     parser.add_argument("--batch-size", type=int, default=32, help="Tamanho do lote")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Taxa de aprendizado inicial")
-    parser.add_argument("--weight-decay", type=float, default=1e-2, help="Regularização L2")
-    parser.add_argument("--patience", type=int, default=15, help="Paciência do early stopping")
+    parser.add_argument("--lr", type=float, default=3e-4, help="Taxa de aprendizado inicial")
+    parser.add_argument("--weight-decay", type=float, default=0.02, help="Regularização L2")
+    parser.add_argument("--dropout", type=float, default=0.20, help="Taxa de dropout")
+    parser.add_argument("--label-smoothing", type=float, default=0.06, help="Taxa de label smoothing")
+    parser.add_argument("--no-augment", action="store_true", help="Desativar aumento de dados por simetria")
+    parser.add_argument("--patience", type=int, default=20, help="Paciência do early stopping")
     args = parser.parse_args()
 
     train_neural_network(
@@ -269,5 +311,8 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         lr=args.lr,
         weight_decay=args.weight_decay,
+        dropout=args.dropout,
+        label_smoothing=args.label_smoothing,
+        augment_symmetry=not args.no_augment,
         patience=args.patience
     )

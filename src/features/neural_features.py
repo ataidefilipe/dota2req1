@@ -259,22 +259,26 @@ class NeuralFeatureEncoder:
         return encoder
 
 
-def extract_raw_matches_from_db(db_path: str = None) -> List[Dict[str, Any]]:
+def extract_raw_matches_from_db(db_path: str = None, patch_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Extrai do SQLite todas as partidas válidas com seus respectivos draft events e players,
     ordenadas por start_time ASC para split temporal estrito.
     """
     db_file = db_path or Config.SQLITE_PATH
-    logger.info(f"Extraindo partidas do banco SQLite: {db_file}")
+    logger.info(f"Extraindo partidas do banco SQLite: {db_file} (Filtro Patch: {patch_id or 'Todos'})")
 
     with sqlite3.connect(db_file) as conn:
         # 1. Partidas
         query_matches = """
             SELECT match_id, radiant_win, patch_id, start_time, duration, dataset
             FROM matches
-            ORDER BY start_time ASC
         """
-        matches_rows = conn.execute(query_matches).fetchall()
+        params = []
+        if patch_id is not None:
+            query_matches += " WHERE patch_id = ?"
+            params.append(patch_id)
+        query_matches += " ORDER BY start_time ASC"
+        matches_rows = conn.execute(query_matches, params).fetchall()
         if not matches_rows:
             logger.warning("Nenhuma partida encontrada no banco.")
             return []
@@ -349,16 +353,17 @@ def prepare_neural_dataset(
     output_dir: str = 'data/processed_neural',
     train_ratio: float = 0.70,
     val_ratio: float = 0.15,
-    test_ratio: float = 0.15
+    test_ratio: float = 0.15,
+    patch_id: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Executa o pipeline completo da Fase 2:
-    - Extrai snapshot do banco
+    - Extrai snapshot do banco (opcionalmente filtrado por patch)
     - Aplica split temporal 70 / 15 / 15 por start_time
     - Fit do encoder unicamente no treino
     - Serializa encoder.json, splits.json e amostras codificadas (.joblib)
     """
-    matches = extract_raw_matches_from_db()
+    matches = extract_raw_matches_from_db(patch_id=patch_id)
     if not matches:
         raise ValueError("Nenhuma partida válida disponível para processar.")
 
@@ -371,7 +376,7 @@ def prepare_neural_dataset(
     test_raw = matches[n_train + n_val:]
 
     logger.info(
-        f"Split Temporal: Total={n_total} | "
+        f"Split Temporal: Total={n_total} (Patch {patch_id or 'Todos'}) | "
         f"Treino={len(train_raw)} (70%) | "
         f"Validação={len(val_raw)} (15%) | "
         f"Teste={len(test_raw)} (15%)"
@@ -393,6 +398,7 @@ def prepare_neural_dataset(
 
     splits_meta = {
         'n_total': n_total,
+        'patch_filter': patch_id,
         'train': {
             'count': len(train_raw),
             'start_time_min': train_raw[0]['start_time'] if train_raw else None,
@@ -428,5 +434,12 @@ def prepare_neural_dataset(
 
 if __name__ == "__main__":
     from ..logger import setup_logging
+    import argparse
     setup_logging()
-    prepare_neural_dataset()
+
+    parser = argparse.ArgumentParser(description="Extração e Preparação de Features Neurais")
+    parser.add_argument("--patch", type=int, default=None, help="Filtrar por patch específico (ex: 59)")
+    parser.add_argument("--output-dir", type=str, default="data/processed_neural")
+    args = parser.parse_args()
+
+    prepare_neural_dataset(output_dir=args.output_dir, patch_id=args.patch)
