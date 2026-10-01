@@ -1,28 +1,28 @@
 {
   "matches_by_dataset": {
-    "pro": 617
+    "pro": 1117
   },
-  "radiant_win_rate": 0.4846029173419773,
-  "total_matches": 617,
+  "radiant_win_rate": 0.4968666069829902,
+  "total_matches": 1117,
   "duration_minutes": {
     "min": 21.8,
-    "avg": 39.59,
-    "max": 98.07
+    "avg": 40.31,
+    "max": 102.1
   },
   "matches_by_patch": {
-    "59": 617
+    "59": 1117
   },
   "player_telemetry": {
-    "total_players_recorded": 6170,
-    "players_with_rank_tier": 4104,
-    "rank_tier_coverage_pct": 66.52,
-    "players_with_computed_mmr": 2710,
-    "computed_mmr_coverage_pct": 43.92,
-    "avg_computed_mmr": 4159.34
+    "total_players_recorded": 11170,
+    "players_with_rank_tier": 8082,
+    "rank_tier_coverage_pct": 72.35,
+    "players_with_computed_mmr": 5797,
+    "computed_mmr_coverage_pct": 51.9,
+    "avg_computed_mmr": 4162.25
   },
   "time_range": {
-    "start_timestamp": 1768408030,
-    "start_utc": "2026-01-14 16:27:10 UTC",
+    "start_timestamp": 1767041514,
+    "start_utc": "2025-12-29 20:51:54 UTC",
     "end_timestamp": 1771620603,
     "end_utc": "2026-02-20 20:50:03 UTC"
   }

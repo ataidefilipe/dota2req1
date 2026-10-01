@@ -1,7 +1,7 @@
 {
   "num_heroes": 129,
   "num_patches": 3,
-  "num_ranks": 34,
+  "num_ranks": 36,
   "hero_dim": 32,
   "patch_dim": 8,
   "rank_dim": 8,
