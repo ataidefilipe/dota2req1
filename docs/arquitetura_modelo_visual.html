@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura Neural Dota 2 Win Predictor</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Transições suaves */
+    .layer-card {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .layer-card:hover {
+      transform: translateY(-2px);
+    }
+    .active-layer {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+    /* Estilo de código */
+    pre code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body class="bg-[var(--background,#0f172a)] text-[var(--foreground,#f8fafc)] antialiased p-4 md:p-8 font-sans">
+  
+  <div class="max-w-6xl mx-auto space-y-8">
+    
+    <!-- Top Header -->
+    <header class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-6 md:p-8 shadow-lg">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="text-3xl">🛡️</span>
+            <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Arquitetura da Rede Neural — Dota 2 Win Predictor</h1>
+          </div>
+          <p class="text-[var(--muted-foreground,#94a3b8)] mt-2 text-sm md:text-base leading-relaxed">
+            Representação por Deep Sets, Atenção Multi-Cabeça (Sinergias & Counters) e Calibração de Probabilidades pós-treino.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            51.817 Parâmetros
+          </span>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Permutação Invariante
+          </span>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            PyTorch + Temp Scaling
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Interactive Navigation Bar -->
+    <nav class="flex flex-wrap items-center justify-center gap-2 bg-[var(--card,#1e293b)]/80 p-2 rounded-xl border border-[var(--border,#334155)]">
+      <button onclick="selectLayer('overview')" id="btn-overview" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-blue-600 text-white">
+        🔍 Visão Geral do Fluxo
+      </button>
+      <button onclick="selectLayer('embeddings')" id="btn-embeddings" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)]">
+        1. Embeddings Compartilhados
+      </button>
+      <button onclick="selectLayer('self-attn')" id="btn-self-attn" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)]">
+        2. Self-Attention (Sinergias)
+      </button>
+      <button onclick="selectLayer('cross-attn')" id="btn-cross-attn" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)]">
+        3. Cross-Attention (Counters)
+      </button>
+      <button onclick="selectLayer('bans-skill')" id="btn-bans-skill" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)]">
+        4. Bans & Habilidade/MMR
+      </button>
+      <button onclick="selectLayer('fusion')" id="btn-fusion" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)]">
+        5. Fusão Simétrica & MLP
+      </button>
+      <button onclick="selectLayer('calibration')" id="btn-calibration" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)]">
+        6. Temperature Scaling
+      </button>
+    </nav>
+
+    <!-- Visual Architecture Map (Diagrama de Blocos) -->
+    <section class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-6 shadow-md">
+      <h2 class="text-lg font-semibold mb-4 flex items-center justify-between">
+        <span>Mapa Estrutural da Rede</span>
+        <span class="text-xs text-[var(--muted-foreground,#94a3b8)] font-normal">Clique em qualquer bloco para inspecionar</span>
+      </h2>
+
+      <!-- Pipeline Grid Visual -->
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-center">
+        
+        <!-- Col 1: Entradas -->
+        <div onclick="selectLayer('embeddings')" class="layer-card cursor-pointer border border-slate-700 bg-slate-800/60 rounded-xl p-4 flex flex-col justify-between hover:border-blue-500">
+          <div>
+            <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Entradas</div>
+            <div class="font-semibold text-sm text-slate-200">Draft & Jogadores</div>
+          </div>
+          <div class="my-3 space-y-1.5 text-xs text-left bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
+            <div>🟢 Radiant: 5 Heróis</div>
+            <div>🔴 Dire: 5 Heróis</div>
+            <div>🚫 Bans: L heróis</div>
+            <div>⭐ Ranks (1-80)</div>
+            <div>📊 MMR Observado</div>
+            <div>🕹️ Patch Token</div>
+          </div>
+          <div class="text-[11px] text-blue-400 font-mono">Tensores [B, 2, 5]</div>
+        </div>
+
+        <!-- Col 2: Embeddings -->
+        <div onclick="selectLayer('embeddings')" class="layer-card cursor-pointer border border-blue-900/50 bg-blue-950/20 rounded-xl p-4 flex flex-col justify-between hover:border-blue-500">
+          <div>
+            <div class="text-xs uppercase font-bold tracking-wider text-blue-400 mb-1">Projeção</div>
+            <div class="font-semibold text-sm text-blue-200">Shared Embeddings</div>
+          </div>
+          <div class="my-3 space-y-2 text-xs text-left bg-slate-900/50 p-2.5 rounded-lg border border-blue-900/30">
+            <div>• Heróis: <span class="font-mono text-blue-300">d = 32</span></div>
+            <div>• Patches: <span class="font-mono text-blue-300">d = 8</span></div>
+            <div>• Ranks: <span class="font-mono text-blue-300">d = 8</span></div>
+            <div>• MMR Norm: <span class="font-mono text-blue-300">d = 1</span></div>
+          </div>
+          <div class="text-[11px] text-blue-400 font-mono">E_picks: [B, 5, 32]</div>
+        </div>
+
+        <!-- Col 3: Attention & Encoders -->
+        <div onclick="selectLayer('self-attn')" class="layer-card cursor-pointer border border-purple-900/50 bg-purple-950/20 rounded-xl p-4 flex flex-col justify-between hover:border-purple-500">
+          <div>
+            <div class="text-xs uppercase font-bold tracking-wider text-purple-400 mb-1">Interações</div>
+            <div class="font-semibold text-sm text-purple-200">Atenção & Pooling</div>
+          </div>
+          <div class="my-3 space-y-2 text-xs text-left bg-slate-900/50 p-2.5 rounded-lg border border-purple-900/30">
+            <div>⚡ <strong>Self-Attn:</strong> Sinergias intra-time (2 heads)</div>
+            <div>⚔️ <strong>Cross-Attn:</strong> Counters inter-times</div>
+            <div>🛡️ <strong>Masked Bans:</strong> Pooling variável</div>
+            <div>👤 <strong>Player Skill:</strong> MMR + Ranks</div>
+          </div>
+          <div class="text-[11px] text-purple-400 font-mono">z_team: [B, 112]</div>
+        </div>
+
+        <!-- Col 4: Fusion & Head -->
+        <div onclick="selectLayer('fusion')" class="layer-card cursor-pointer border border-emerald-900/50 bg-emerald-950/20 rounded-xl p-4 flex flex-col justify-between hover:border-emerald-500">
+          <div>
+            <div class="text-xs uppercase font-bold tracking-wider text-emerald-400 mb-1">Decisão</div>
+            <div class="font-semibold text-sm text-emerald-200">Fusão & MLP Head</div>
+          </div>
+          <div class="my-3 space-y-2 text-xs text-left bg-slate-900/50 p-2.5 rounded-lg border border-emerald-900/30">
+            <div>• Diff: <span class="font-mono text-emerald-300">z_R - z_D</span></div>
+            <div>• Prod: <span class="font-mono text-emerald-300">z_R ⊙ z_D</span></div>
+            <div>• LayerNorm (456)</div>
+            <div>• MLP: 64 → 16 → 1</div>
+          </div>
+          <div class="text-[11px] text-emerald-400 font-mono">Logit escalar [B]</div>
+        </div>
+
+        <!-- Col 5: Calibration -->
+        <div onclick="selectLayer('calibration')" class="layer-card cursor-pointer border border-amber-900/50 bg-amber-950/20 rounded-xl p-4 flex flex-col justify-between hover:border-amber-500">
+          <div>
+            <div class="text-xs uppercase font-bold tracking-wider text-amber-400 mb-1">Saída</div>
+            <div class="font-semibold text-sm text-amber-200">Temperature Scaling</div>
+          </div>
+          <div class="my-3 space-y-2 text-xs text-left bg-slate-900/50 p-2.5 rounded-lg border border-amber-900/30">
+            <div>• Ajuste térmico: <span class="font-mono text-amber-300">T</span></div>
+            <div>• Sigmoid Calibrado</div>
+            <div class="text-emerald-400 font-semibold mt-1">P(Radiant Win)</div>
+            <div class="text-slate-400 text-[10px]">Probabilidade realística (sem viés overconfident)</div>
+          </div>
+          <div class="text-[11px] text-amber-400 font-mono">P ∈ [0, 1]</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Detailed Content Pane (Dynamic Details) -->
+    <main id="details-pane" class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-6 md:p-8 shadow-lg">
+      <!-- Injected via JavaScript -->
+    </main>
+
+    <!-- Interactive Live Tensor Walkthrough Simulator -->
+    <section class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-6 shadow-md">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <span>🎮</span>
+            <span>Simulador de Propagação de Tensores</span>
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mt-1">
+            Veja como um draft real se transforma passo a passo dentro das matrizes da rede.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="prevStep()" id="sim-prev-btn" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border,#334155)] bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40" disabled>
+            ◀ Passo Anterior
+          </button>
+          <span id="sim-step-indicator" class="text-xs font-mono text-blue-400 px-2">Passo 1 de 5</span>
+          <button onclick="nextStep()" id="sim-next-btn" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-500">
+            Próximo Passo ▶
+          </button>
+        </div>
+      </div>
+
+      <div id="sim-content-box" class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 font-mono text-sm leading-relaxed text-slate-300">
+        <!-- Injetado dinamicamente -->
+      </div>
+    </section>
+
+    <!-- Comparative Table: Baseline vs Rede Neural -->
+    <section class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-6 shadow-md">
+      <h2 class="text-lg font-semibold mb-4">⚖️ Por que a Rede Neural supera a Regressão Logística Tradicional?</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
+              <th class="py-3 px-4">Critério de Engenharia</th>
+              <th class="py-3 px-4">Baseline (Regressão Logística)</th>
+              <th class="py-3 px-4 text-blue-400 font-semibold">Nossa Rede Neural (PyTorch Deep Sets)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800 text-slate-300">
+            <tr>
+              <td class="py-3 px-4 font-semibold text-slate-200">Representação de Heróis</td>
+              <td class="py-3 px-4 text-rose-300">Vetor esparso One-Hot (>500 colunas). Ignora similaridades entre heróis.</td>
+              <td class="py-3 px-4 text-emerald-300"><strong>Embeddings densos de 32 dimensões</strong>. Heróis com funções similares agrupam-se no espaço latente.</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-slate-200">Invariância à Permutação</td>
+              <td class="py-3 px-4 text-amber-300">Exige soma manual de colunas. Sem modelagem de contexto conjunto.</td>
+              <td class="py-3 px-4 text-emerald-300"><strong>Deep Sets + Mean Pooling</strong>: a ordem em que os heróis foram escolhidos no time não afeta a saída.</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-slate-200">Interações (Sinergias & Counters)</td>
+              <td class="py-3 px-4 text-rose-300">Incapaz de capturar pares sem explosão combinatória ($\approx 127^2 = 16.129$ variáveis).</td>
+              <td class="py-3 px-4 text-emerald-300"><strong>Self-Attention & Cross-Attention</strong> aprendem naturalmente sinergias (ex: Slardar + Clinkz) e counters sem criar novas colunas.</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-slate-200">Habilidade & MMR dos Jogadores</td>
+              <td class="py-3 px-4 text-slate-500">Ignorado ou apenas médias brutas vulneráveis a dados ausentes.</td>
+              <td class="py-3 px-4 text-emerald-300"><strong>Ramo de Habilidade com Máscaras</strong>: combina rank categórico, MMR normalizado e indicador de ausência de perfil.</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-slate-200">Calibração de Probabilidade</td>
+              <td class="py-3 px-4 text-rose-300">Severo overfitting (Train Loss 0.36 vs Test Loss 0.97). Probabilidades distorcidas.</td>
+              <td class="py-3 px-4 text-emerald-300"><strong>Temperature Scaling ($T$)</strong>: calibração pós-treino com ECE $< 0.03$, garantindo probabilidades reais de aposta.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-[var(--muted-foreground,#64748b)] py-4">
+      Dota 2 Win Predictor • PyTorch 2.14 • Desenvolvido com Antigravity • Projeto versionado no Git
+    </footer>
+
+  </div>
+
+  <script>
+    // Dicionário com os dados aprofundados de cada componente
+    const layerDetails = {
+      'overview': {
+        title: 'Visão Geral: Arquitetura Deep Sets com Atenção Bidirecional',
+        tag: 'Design Geral',
+        tagColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        formula: 'P(\\text{Radiant Win} \\mid \\text{Draft}, \\text{Skill}) = \\sigma\\left(\\frac{\\text{MLP}(\\mathcal{F}(z_R, z_D))}{T}\\right)',
+        purpose: 'Transformar a escolha dos 10 heróis (picks), bans e habilidade dos jogadores em uma representação vetorial compacta, invariante à ordem das escolhas e capaz de mensurar sinergias intra-equipe e vantagens de matchup inter-equipes.',
+        whyChosen: `
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Por que não um MLP puro sobre One-Hot?</strong> Um vetor One-Hot tem mais de 500 dimensões para 10 heróis. O modelo precisaria aprender pesos isolados para cada herói em cada posição, sofrendo de sobreajuste catastrófico.</li>
+            <li><strong>Princípio de Deep Sets (Zaheer et al.):</strong> Em Dota 2, uma equipe com {Axe, Dazzle, Invoker, Lion, Anti-Mage} é exatamente a mesma se listada como {Lion, Axe, Anti-Mage, Invoker, Dazzle}. A arquitetura garante matematicamente essa simetria através de camadas equivariantes seguidas de <em>Mean Pooling</em>.</li>
+            <li><strong>Simetria de Lados:</strong> Ao treinar com duplicação espelhada (Radiant ↔ Dire e target invertido), o modelo atinge invariância de lado e aprende relações puras de matchup.</li>
+          </ul>
+        `,
+        code: `# Resumo estrutural do DotaWinPredictorNN
+z_rad, _ = self.encode_team(picks_rad, picks_dire, bans_rad, ranks_rad, mmr_rad)
+z_dire, _ = self.encode_team(picks_dire, picks_rad, bans_dire, ranks_dire, mmr_dire)
+
+# Fusão simétrica + Patch
+u = torch.cat([z_rad, z_dire, z_rad - z_dire, z_rad * z_dire, patch_emb], dim=-1)
+logits = self.head(u) # Scaler pós-treino: prob = sigmoid(logits / T)`
+      },
+
+      'embeddings': {
+        title: '1. Embeddings Densos Compartilhados (Heróis, Patches e Ranks)',
+        tag: 'Camada de Entrada',
+        tagColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        formula: '\\mathbf{e}_h = \\text{Embedding}(h; \\mathbf{W}_{\\text{hero}} \\in \\mathbb{R}^{128 \\times 32})',
+        purpose: 'Mapear identificadores discretos de heróis (IDs de 1 a 145), patches e patentes para um espaço vetorial contínuo e denso.',
+        whyChosen: `
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Compartilhamento de Pesos:</strong> A mesma matriz de embedding de 32 dimensões é usada para os heróis do Radiant, do Dire e da lista de Bans. O herói tem a mesma identidade semântica em qualquer posição.</li>
+            <li><strong>Geometria Semântica:</strong> Heróis com funções semelhantes (ex: suportes de controle de área como Jakiro e Disruptor) convergem para regiões próximas no espaço latente.</li>
+            <li><strong>Tratamento de Tokens Especiais:</strong> O índice <code>0</code> é reservado estritamente para <code>PAD</code> (padding de bans ou dados ausentes), e <code>1</code> para <code>UNK</code> (heróis recém-lançados ou IDs desconhecidos).</li>
+          </ul>
+        `,
+        code: `self.hero_embed = nn.Embedding(num_heroes, hero_dim=32, padding_idx=0)
+self.patch_embed = nn.Embedding(num_patches, patch_dim=8, padding_idx=0)
+self.rank_embed = nn.Embedding(num_ranks, rank_dim=8, padding_idx=0)`
+      },
+
+      'self-attn': {
+        title: '2. Bloco de Self-Attention Intra-Equipe (Sinergias do Draft)',
+        tag: 'Equivariância & Sinergias',
+        tagColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+        formula: '\\mathbf{H}_{\\text{team}} = \\text{LayerNorm}\\left(\\mathbf{X} + \\text{Dropout}\\left(\\text{MHA}(\\mathbf{Q}=\\mathbf{X}, \\mathbf{K}=\\mathbf{X}, \\mathbf{V}=\\mathbf{X})\\right)\\right)',
+        purpose: 'Permitir que cada herói do time atenda a todos os outros 4 aliados na mesma formação para capturar sinergias de combo, combos de controle e equilíbrio de funções.',
+        whyChosen: `
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Captura de Combos Clássicos:</strong> O mecanismo de atenção calcula o produto escalar entre todos os pares de heróis da equipe, aprendendo padrões como <em>Slardar + Clinkz</em> (80% WR) ou <em>Tidehunter + Invoker</em> (81% WR) sem depender de termos de interação manuais.</li>
+            <li><strong>Pré-Norm & Conexões Residuais:</strong> Garante fluxo de gradiente estável mesmo com poucos dados de treino, evitando degradação de representação.</li>
+            <li><strong>Mean Pooling Invariante:</strong> Ao final do bloco, aplicamos a média sobre os 5 heróis: <code>s_team = h_team.mean(dim=1)</code>. Isso gera um vetor de 32 dimensões estritamente invariante à ordem de escolha no draft.</li>
+          </ul>
+        `,
+        code: `class PickSelfAttentionBlock(nn.Module):
+    def __init__(self, embed_dim=32, num_heads=2, dropout=0.15):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(embed_dim)
+        self.mha = nn.MultiheadAttention(embed_dim, num_heads, dropout=dropout, batch_first=True)
+        self.ln2 = nn.LayerNorm(embed_dim)
+        self.ffn = nn.Sequential(nn.Linear(embed_dim, embed_dim * 2), nn.GELU(), nn.Linear(embed_dim * 2, embed_dim))
+
+    def forward(self, x):
+        norm_x = self.ln1(x)
+        attn_out, _ = self.mha(norm_x, norm_x, norm_x)
+        x = x + attn_out
+        return x + self.ffn(self.ln2(x))`
+      },
+
+      'cross-attn': {
+        title: '3. Bloco de Cross-Attention Inter-Equipes (Vantagens de Counter)',
+        tag: 'Counters de Draft',
+        tagColor: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        formula: '\\mathbf{C}_{R \\to D} = \\text{CrossAttn}(\\mathbf{Q}=\\mathbf{H}_R, \\mathbf{K}=\\mathbf{H}_D, \\mathbf{V}=\\mathbf{H}_D)',
+        purpose: 'Cruzar os vetores de heróis da equipe com os heróis da equipe adversária para avaliar se o draft possui respostas eficazes contra os pontos fortes inimigos.',
+        whyChosen: `
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Assimetria Tática:</strong> Um herói individual pode ser forte (ex: Huskar com 64.4% WR), mas se o time adversário tiver respostas diretas (ex: Viper ou Ancient Apparition), o valor do pick cai drasticamente.</li>
+            <li><strong>Mecanismo de Query-Key:</strong> Os heróis do time atuam como <em>Queries</em>, enquanto os heróis inimigos atuam como <em>Keys/Values</em>. O Attention Map resultante mede exatamente o grau de "anulação" ou "desconforto" gerado pelos heróis rivais.</li>
+            <li><strong>Simetria Dupla:</strong> Computado bidirecionalmente: <code>c_rad = cross(rad, dire)</code> e <code>c_dire = cross(dire, rad)</code>.</li>
+          </ul>
+        `,
+        code: `class CounterCrossAttentionBlock(nn.Module):
+    def forward(self, h_team, h_opp):
+        q = self.ln_q(h_team)
+        kv = self.ln_kv(h_opp)
+        attn_out, _ = self.cross_attn(q, kv, kv)
+        return self.ln_out(h_team + attn_out)`
+      },
+
+      'bans-skill': {
+        title: '4. Codificadores de Bans & Habilidade do Jogador (MMR/Ranks)',
+        tag: 'Contexto & Variáveis Contínuas',
+        tagColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        formula: 'k_{\\text{team}} = \\text{MLP}\\left([\\text{mean}(\\mathbf{p}), \\text{max}(\\mathbf{p}), \\mu_{\\text{mmr}}, \\sigma_{\\text{mmr}}, \\text{cov}_{\\text{rank}}, \\text{cov}_{\\text{mmr}}]\\right)',
+        purpose: 'Processar listas de tamanho variável de bans sem criar ruído, e incorporar a habilidade real dos jogadores (MMR e patentes) considerando ausência parcial de dados.',
+        whyChosen: `
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Masked Mean Pooling nos Bans:</strong> Diferentes partidas profissionais registram entre 0 e 14 bans. Criamos uma máscara booleana <code>bans_mask</code> para que o padding não contamine a média latente do meta banido.</li>
+            <li><strong>Máscaras Explícitas de Ausência (Missingness Indicator):</strong> Nem todo jogador profissional possui perfil com MMR público exposto na API OpenDota. Em vez de simplesmente preencher com zero (o que induziria a rede a achar que são jogadores ruins), injetamos um vetor booleano de observabilidade: <code>skill_masks = [rank_obs, mmr_obs]</code>.</li>
+            <li><strong>Estatísticas Agregadas de Equipe:</strong> Além das características individuais por jogador, o codificador extrai a média, variância e o pico de MMR da equipe (<code>max_p</code>), refletindo liderança técnica no time.</li>
+          </ul>
+        `,
+        code: `# Bans com Masked Pooling
+emb = self.hero_embed(bans)
+sum_h = (self.mlp_pre(emb) * bans_mask.unsqueeze(-1)).sum(dim=1)
+counts = bans_mask.sum(dim=1, keepdim=True).clamp(min=1.0)
+pooled_bans = sum_h / counts
+
+# Habilidade com Máscaras
+p_in = torch.cat([rank_emb, mmr_norm, skill_masks], dim=-1)
+p_feat = self.player_mlp(p_in)
+k_team = self.team_mlp(torch.cat([p_feat.mean(dim=1), p_feat.max(dim=1), summaries], dim=-1))`
+      },
+
+      'fusion': {
+        title: '5. Fusão Simétrica de Representações & Cabeça MLP',
+        tag: 'Camada de Decisão',
+        tagColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        formula: '\\mathbf{u} = [\\mathbf{z}_R, \\mathbf{z}_D, \\mathbf{z}_R - \\mathbf{z}_D, \\mathbf{z}_R \\odot \\mathbf{z}_D, \\mathbf{e}_{\\text{patch}}] \\in \\mathbb{R}^{456}',
+        purpose: 'Consolidar os vetores de cada equipe ($z_R$ e $z_D$, de dimensão 112 cada) com operadores algébricos simétricos e calcular o logit final de vitória.',
+        whyChosen: `
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Diferença de Vetores (\\(\\mathbf{z}_R - \\mathbf{z}_D\\)):</strong> Modela explicitamente a vantagem relativa líquida de um time sobre o outro.</li>
+            <li><strong>Produto de Hadamard (\\(\\mathbf{z}_R \\odot \\mathbf{z}_D\\)):</strong> Modela termos de interação direta entre características de ambos os times.</li>
+            <li><strong>Cabeça com Dropout & LayerNorm:</strong> <code>LayerNorm(456) → Linear(64) → GELU → Dropout(0.20) → Linear(16) → GELU → Linear(1)</code>. Mantém o número de parâmetros controlado (51k parâmetros) para evitar sobreajuste.</li>
+            <li><strong>Team Symmetry Augmentation no Treino:</strong> Treinar sobre o par normal e o par invertido <code>(Dire, Radiant)</code> garante que a saída seja anti-simétrica: $P(\\text{Dire Win}) = 1 - P(\\text{Radiant Win})$.</li>
+          </ul>
+        `,
+        code: `u = torch.cat([
+    z_rad,
+    z_dire,
+    z_rad - z_dire,
+    z_rad * z_dire,
+    patch_emb
+], dim=-1) # [B, 456]
+
+logits = self.head(u).squeeze(-1) # [B]`
+      },
+
+      'calibration': {
+        title: '6. Calibração de Probabilidades pós-treino (Temperature Scaling)',
+        tag: 'Calibração Estatística',
+        tagColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        formula: 'P(\\text{Radiant Win}) = \\sigma\\left(\\frac{\\text{logit}}{T}\\right), \\quad T > 0',
+        purpose: 'Ajustar a escala da confiança do modelo através de um único parâmetro $T$ (temperatura) otimizado no conjunto de validação congelado.',
+        whyChosen: `
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>O Problema da Super-Confiança em Redes Neurais:</strong> Conforme demonstrado por Guo et al. (2017), redes modernas com Cross-Entropy tendem a gerar probabilidades extremas (ex: 95% de vitória) mesmo quando a acurácia real é de 55%.</li>
+            <li><strong>Preservação Exata do Ranking:</strong> Como $T$ é um escalar positivo constante, a função $\\text{logit} / T$ é estritamente monotônica: <em>o ROC-AUC e a acurácia de classificação não são alterados</em>, mas a calibração de probabilidade melhora substancialmente.</li>
+            <li><strong>Minimização do ECE (Expected Calibration Error):</strong> Reduz o ECE para menos de 0.03, garantindo que quando o modelo disser "60% de chance de vitória", a equipe realmente vença cerca de 6 em cada 10 partidas.</li>
+          </ul>
+        `,
+        code: `class TemperatureScaler(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.temperature = nn.Parameter(torch.ones(1) * 1.5)
+
+    def forward(self, logits):
+        return logits / self.temperature
+
+    def fit(self, val_logits, val_targets):
+        # Otimiza T via L-BFGS minimizando NLL no conjunto de validação
+        optimizer = optim.LBFGS([self.temperature], lr=0.01, max_iter=50)
+        ...`
+      }
+    };
+
+    // Simulador de passos
+    const simSteps = [
+      {
+        title: "Passo 1: Conversão e Lookup de Embeddings",
+        tensor: "Entrada: picks_rad = [1, 2, 3, 4, 5] (IDs dos heróis)\nSaída: E_rad = Embedding(picks_rad) -> Shape: [1, 5, 32]\nValores amostrais:\n[[ 0.12, -0.45,  0.89, ... (32 dims por herói) ]\n [ -0.05,  0.72, -0.18, ... ]\n [ ... 5 heróis no total ]]",
+        explain: "Os números inteiros dos IDs são transformados em vetores densos aprendidos de 32 dimensões onde cada herói ganha uma assinatura matemática contínua."
+      },
+      {
+        title: "Passo 2: Multi-Head Self-Attention (Sinergias)",
+        tensor: "Entrada: E_rad [1, 5, 32]\nOperação: Q = K = V = E_rad -> Softmax(Q K^T / sqrt(d_k)) V\nAttention Weights (5x5):\n[ [0.35, 0.10, 0.40, 0.05, 0.10],   <- Herói 1 atendendo com força ao Herói 3 (ex: Tide + Invoker)\n  [0.08, 0.50, 0.12, 0.20, 0.10], ... ]\nSaída pós-FFN e Residual: H_rad -> Shape: [1, 5, 32]\nMean Pooling: s_rad = H_rad.mean(dim=1) -> Shape: [1, 32]",
+        explain: "Cada herói consulta seus 4 aliados. O vetor resultante de cada herói agora contém informações contextuais de toda a equipe. O pooling gera um vetor único de 32 dimensões invariante à ordem das escolhas."
+      },
+      {
+        title: "Passo 3: Multi-Head Cross-Attention (Counters)",
+        tensor: "Entrada: H_rad (Query) [1, 5, 32] e H_dire (Keys/Values) [1, 5, 32]\nOperação: Softmax(H_rad H_dire^T / sqrt(d_k)) H_dire\nSaída pós-Residual: C_rad -> Shape: [1, 5, 32]\nMean Pooling: c_rad = C_rad.mean(dim=1) -> Shape: [1, 32]",
+        explain: "Os heróis do Radiant consultam os heróis do Dire para verificar vantagens de matchup e capacidade de anulação. O vetor c_rad mede a capacidade da equipe de contra-atacar a composição inimiga."
+      },
+      {
+        title: "Passo 4: Vetor de Equipe Completo & Fusão Simétrica",
+        tensor: "z_rad = [s_rad(32), c_rad(32), b_rad(32), k_rad(16)] -> Shape: [1, 112]\nz_dire = [s_dire(32), c_dire(32), b_dire(32), k_dire(16)] -> Shape: [1, 112]\n\nFusão u = [z_rad, z_dire, z_rad - z_dire, z_rad * z_dire, patch_emb(8)]\nShape do Vetor de Fusão: [1, 456]",
+        explain: "Reunimos todas as características (sinergias, counters, bans e habilidade de jogadores) em um vetor de 112 dimensões por equipe. A fusão computa a diferença relativa e interação entre as equipes, agregando o token de patch."
+      },
+      {
+        title: "Passo 5: Projeção MLP & Calibração de Probabilidade",
+        tensor: "MLP: Linear(456 -> 64) -> GELU -> Linear(64 -> 16) -> GELU -> Linear(16 -> 1)\nLogit bruto = +0.2180\nTemperatura calibrada: T = 3.8309\nLogit escalado = 0.2180 / 3.8309 = +0.0569\n\nProbabilidade: P(Radiant Win) = 1 / (1 + exp(-0.0569)) = 0.5142 (51.4%)",
+        explain: "A cabeça MLP gera o logit escalar de preferência de vitória. O Temperature Scaler reescala suavemente esse logit para evitar super-confiança, resultando em uma probabilidade precisa de 51.4% de vitória para o Radiant."
+      }
+    ];
+
+    let currentStep = 0;
+
+    function renderStep() {
+      const step = simSteps[currentStep];
+      document.getElementById('sim-step-indicator').innerText = `Passo ${currentStep + 1} de ${simSteps.length}`;
+      document.getElementById('sim-content-box').innerHTML = `
+        <div class="text-blue-400 font-bold text-base mb-2">${step.title}</div>
+        <pre class="bg-black/40 p-4 rounded-lg text-xs md:text-sm text-emerald-400 overflow-x-auto whitespace-pre-wrap leading-relaxed">${step.tensor}</pre>
+        <div class="mt-3 text-slate-300 text-xs md:text-sm font-sans flex items-start gap-2">
+          <span class="text-blue-400 font-bold">💡 Explicação:</span>
+          <span>${step.explain}</span>
+        </div>
+      `;
+      document.getElementById('sim-prev-btn').disabled = currentStep === 0;
+      document.getElementById('sim-next-btn').disabled = currentStep === simSteps.length - 1;
+    }
+
+    function nextStep() {
+      if (currentStep < simSteps.length - 1) {
+        currentStep++;
+        renderStep();
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) {
+        currentStep--;
+        renderStep();
+      }
+    }
+
+    function selectLayer(layerId) {
+      // Atualizar botões
+      const buttons = ['overview', 'embeddings', 'self-attn', 'cross-attn', 'bans-skill', 'fusion', 'calibration'];
+      buttons.forEach(b => {
+        const btn = document.getElementById('btn-' + b);
+        if (b === layerId) {
+          btn.className = "px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-blue-600 text-white";
+        } else {
+          btn.className = "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)]";
+        }
+      });
+
+      const data = layerDetails[layerId];
+      if (!data) return;
+
+      document.getElementById('details-pane').innerHTML = `
+        <div class="space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-700/60 pb-4">
+            <div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${data.tagColor} border mb-2">
+                ${data.tag}
+              </span>
+              <h3 class="text-xl md:text-2xl font-bold text-slate-100">${data.title}</h3>
+            </div>
+            <div class="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg border border-slate-700 text-blue-300">
+              ${data.formula}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <div>
+                <h4 class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Propósito & Função</h4>
+                <p class="text-sm text-slate-300 leading-relaxed">${data.purpose}</p>
+              </div>
+
+              <div>
+                <h4 class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Por que esta Escolha de Engenharia?</h4>
+                <div class="text-sm text-slate-300 leading-relaxed">${data.whyChosen}</div>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-2">Implementação em PyTorch (Trecho do Código)</h4>
+              <pre class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs md:text-sm text-sky-300 overflow-x-auto font-mono leading-relaxed"><code>${data.code}</code></pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Inicialização padrão
+    window.addEventListener('DOMContentLoaded', () => {
+      selectLayer('overview');
+      renderStep();
+    });
+  </script>
+</body>
+</html>
