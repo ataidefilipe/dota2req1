@@ -40,8 +40,17 @@ class OpenDotaClient:
                 
                 # Rate limit hit
                 if response.status_code == 429:
+                    resp_text = response.text.lower()
+                    rem_day = response.headers.get("X-Rate-Limit-Remaining-Day")
+                    if "daily api limit exceeded" in resp_text or (rem_day is not None and int(rem_day) <= 0):
+                        self.logger.error(
+                            "Limite diário da API OpenDota atingido (2.000 req/dia no IP gratuito). "
+                            "O limite reseta às 00:00 UTC (21:00 BRT) ou insira uma OPENDOTA_API_KEY no arquivo .env."
+                        )
+                        return None
+
                     wait = int(response.headers.get("Retry-After", 5))
-                    self.logger.warning(f"429 Rate Limit. Waiting {wait}s...")
+                    self.logger.warning(f"429 Rate Limit por minuto. Aguardando {wait}s...")
                     time.sleep(wait)
                     continue
                 
