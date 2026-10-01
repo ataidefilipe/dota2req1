@@ -49,7 +49,7 @@ class OpenDotaClient:
                         )
                         return None
 
-                    wait = int(response.headers.get("Retry-After", 5))
+                    wait = int(response.headers.get("Retry-After", 2))
                     self.logger.warning(f"429 Rate Limit por minuto. Aguardando {wait}s...")
                     time.sleep(wait)
                     continue
