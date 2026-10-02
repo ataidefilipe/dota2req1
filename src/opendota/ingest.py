@@ -183,18 +183,78 @@ def ingest_public_matches(limit: int = 100, direction: str = "backfill", max_sca
             repo.set_ingestion_state("ranked_high_backfill", current_cursor)
         logger.info(f"Ingestão pública concluída. Salvas: {matches_saved} (Escaneadas: {total_scanned})")
 
+def ingest_patch59_pro_window(limit: int = 600):
+    """
+    Ingere cirurgicamente todas as partidas profissionais do Patch 59 
+    compreendidas entre 20/02/2026 e 24/03/2026 via OpenDota Explorer SQL.
+    """
+    client = OpenDotaClient()
+    dataset = "pro"
+    
+    sql = """
+    SELECT m.match_id
+    FROM matches m
+    JOIN leagues l ON m.leagueid = l.leagueid
+    WHERE m.game_mode = 2 
+      AND l.tier in ('professional', 'premium')
+      AND m.start_time >= 1771620603 
+      AND m.start_time < 1774313459
+    ORDER BY m.match_id ASC
+    """
+    logger.info("Consultando lista de partidas profissionais do Patch 59 via OpenDota Explorer...")
+    res = client.get("/explorer", params={"sql": sql})
+    if not res or "rows" not in res:
+        logger.error("Falha ao obter lista de partidas do Explorer.")
+        return
+
+    mids = [row["match_id"] for row in res.get("rows", [])]
+    logger.info(f"Total de {len(mids)} partidas profissionais encontradas no período restante do Patch 59.")
+
+    with repo.get_db_connection() as conn:
+        if mids:
+            placeholders = ','.join('?' for _ in mids)
+            existing = {r[0] for r in conn.execute(f"SELECT match_id FROM matches WHERE match_id IN ({placeholders})", mids).fetchall()}
+        else:
+            existing = set()
+
+    to_fetch = [mid for mid in mids if mid not in existing]
+    logger.info(f"{len(existing)} partidas já constam no banco. Restam {len(to_fetch)} para processar.")
+
+    matches_saved = 0
+    total_scanned = 0
+
+    try:
+        for mid in to_fetch:
+            total_scanned += 1
+            if fetch_and_save_match(client, mid, dataset, target_patch=59):
+                matches_saved += 1
+                logger.info(f"[+] Match {mid} salvo com sucesso! (Salvas: {matches_saved} | Escaneadas: {total_scanned}/{len(to_fetch)})")
+            else:
+                logger.debug(f"[-] Match {mid} descartado pelos filtros.")
+
+            if matches_saved >= limit:
+                logger.info("Limite de partidas atingido.")
+                break
+    except KeyboardInterrupt:
+        logger.warning("Interrupção pelo usuário recebida.")
+    finally:
+        logger.info(f"Conclusão do Patch 59 finalizada. Total salvo: {matches_saved} (Escaneadas: {total_scanned})")
+
 if __name__ == "__main__":
     from ..logger import setup_logging
     setup_logging()
 
     parser = argparse.ArgumentParser(description="Ingestão contínua de partidas OpenDota")
+    parser.add_argument("--complete-patch59", action="store_true", help="Completar 100% das partidas pro do Patch 59")
     parser.add_argument("--dataset", choices=["pro", "ranked_high"], default="pro", help="Origem do dataset")
     parser.add_argument("--direction", choices=["forward", "backfill"], default="forward", help="Sentido da coleta")
-    parser.add_argument("--limit", type=int, default=50, help="Quantidade de partidas aceitas a salvar")
+    parser.add_argument("--limit", type=int, default=600, help="Quantidade de partidas aceitas a salvar")
     parser.add_argument("--max-scanned", type=int, default=2000, help="Limite máximo de partidas a inspecionar")
     args = parser.parse_args()
 
-    if args.dataset == "pro":
+    if args.complete_patch59:
+        ingest_patch59_pro_window(limit=args.limit)
+    elif args.dataset == "pro":
         ingest_pro_matches(limit=args.limit, direction=args.direction, max_scanned=args.max_scanned)
     elif args.dataset == "ranked_high":
         ingest_public_matches(limit=args.limit, direction=args.direction, max_scanned=args.max_scanned)
