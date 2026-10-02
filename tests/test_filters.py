@@ -99,5 +99,30 @@ class TestFilters(unittest.TestCase):
         }
         self.assertFalse(is_valid_match(match))
 
+    def test_max_leaver_status(self):
+        match = {
+            'match_id': 1,
+            'game_mode': 2,
+            'duration': 2000,
+            'radiant_win': True,
+            'picks_bans': [
+                {'is_pick': True, 'team': 0, 'hero_id': i} for i in range(1, 6)
+            ] + [
+                {'is_pick': True, 'team': 1, 'hero_id': i} for i in range(6, 11)
+            ],
+            'players': [
+                {'player_slot': i, 'leaver_status': 0} for i in range(5)
+            ] + [
+                {'player_slot': 128 + i, 'leaver_status': 0} for i in range(4)
+            ] + [
+                {'player_slot': 132, 'leaver_status': 1}  # Disconnected at end
+            ]
+        }
+        # With max_leaver_status=1, disconnect at end is accepted
+        self.assertTrue(is_valid_match(match, max_leaver_status=1))
+        # But actual abandon (status=2) is rejected even with max_leaver_status=1
+        match['players'][-1]['leaver_status'] = 2
+        self.assertFalse(is_valid_match(match, max_leaver_status=1))
+
 if __name__ == '__main__':
     unittest.main()

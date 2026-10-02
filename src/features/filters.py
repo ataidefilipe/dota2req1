@@ -2,14 +2,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def is_valid_match(match_data: dict, target_patch: int = None) -> bool:
+def is_valid_match(match_data: dict, target_patch: int = None, max_leaver_status: int = 0) -> bool:
     """
     Validates if a match meets the strict criteria for the dataset:
     1. Game Mode == 2 (Captain's Mode)
     2. Duration >= 1800s (30 mins)
     3. Target radiant_win is boolean (not None)
     4. Picks/Bans: Exactly 10 picks total, 5 per team, no duplicate picked heroes
-    5. Players: Exactly 10 players, no leavers (leaver_status == 0), 5 per team
+    5. Players: Exactly 10 players, no abandons (leaver_status <= max_leaver_status), 5 per team
     6. Patch == target_patch (if target_patch is specified and patch is present)
     """
     mid = match_data.get('match_id')
@@ -71,10 +71,10 @@ def is_valid_match(match_data: dict, target_patch: int = None) -> bool:
         logger.debug(f"Match {mid} rejected: {len(players)} players (expected 10)")
         return False
 
-    # Check leaver status
+    # Check leaver status (0: finished normally, 1: disconnected at end/GG, >=2: actual abandon/afk)
     for p in players:
-        if p.get('leaver_status', 0) != 0:
-            logger.debug(f"Match {mid} rejected: player {p.get('player_slot')} has leaver_status {p.get('leaver_status')}")
+        if p.get('leaver_status', 0) > max_leaver_status:
+            logger.debug(f"Match {mid} rejected: player {p.get('player_slot')} has leaver_status {p.get('leaver_status')} > {max_leaver_status}")
             return False
 
     # Check player slot distribution if player_slot is present

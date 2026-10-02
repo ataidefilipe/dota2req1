@@ -8,7 +8,7 @@ from ..features.filters import is_valid_match
 
 logger = logging.getLogger(__name__)
 
-def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str, target_patch: int = 59) -> bool:
+def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str, target_patch: int = 59, max_leaver_status: int = 0) -> bool:
     """
     Fetches full match details, validates quality filters,
     and atomically saves match, draft_events, and match_players.
@@ -19,8 +19,8 @@ def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str, ta
             logger.warning(f"Match {match_id} not found or empty.")
             return False
 
-        # Apply Quality Filters (Captain's Mode, 10 picks, 5/side, duration >= 30m, leavers=0, Patch 59)
-        if not is_valid_match(data, target_patch=target_patch):
+        # Apply Quality Filters (Captain's Mode, 10 picks, 5/side, duration >= 30m, leavers <= max_leaver_status, Patch 59)
+        if not is_valid_match(data, target_patch=target_patch, max_leaver_status=max_leaver_status):
             logger.debug(f"Match {match_id} filtered out (criteria not met).")
             return False
 
@@ -240,20 +240,82 @@ def ingest_patch59_pro_window(limit: int = 600):
     finally:
         logger.info(f"Conclusão do Patch 59 finalizada. Total salvo: {matches_saved} (Escaneadas: {total_scanned})")
 
+def ingest_patch59_community_matches(limit: int = 500):
+    """
+    Ingere partidas de Captain's Mode de ligas comunitárias, amadoras e semiprofissionais
+    (tier = 'excluded') pertencentes ao Patch 59 (Dota 2 v7.40) via OpenDota Explorer SQL.
+    Aplica pré-filtro m.duration >= 1800 diretamente no SQL para economizar requisições à API.
+    """
+    client = OpenDotaClient()
+    dataset = "community"
+    
+    sql = """
+    SELECT m.match_id
+    FROM matches m
+    JOIN leagues l ON m.leagueid = l.leagueid
+    WHERE m.game_mode = 2 
+      AND l.tier = 'excluded'
+      AND m.duration >= 1800
+      AND m.start_time >= 1765849783 
+      AND m.start_time < 1774313459
+    ORDER BY m.match_id ASC
+    """
+    logger.info("Consultando lista de partidas comunitárias/amadoras do Patch 59 via OpenDota Explorer...")
+    res = client.get("/explorer", params={"sql": sql})
+    if not res or "rows" not in res:
+        logger.error("Falha ao obter lista de partidas comunitárias do Explorer.")
+        return
+
+    mids = [row["match_id"] for row in res.get("rows", [])]
+    logger.info(f"Total de {len(mids)} partidas comunitárias (duration >= 30m) encontradas no Patch 59.")
+
+    with repo.get_db_connection() as conn:
+        if mids:
+            placeholders = ','.join('?' for _ in mids)
+            existing = {r[0] for r in conn.execute(f"SELECT match_id FROM matches WHERE match_id IN ({placeholders})", mids).fetchall()}
+        else:
+            existing = set()
+
+    to_fetch = [mid for mid in mids if mid not in existing]
+    logger.info(f"{len(existing)} partidas já constam no banco. Restam {len(to_fetch)} para processar.")
+
+    matches_saved = 0
+    total_scanned = 0
+
+    try:
+        for mid in to_fetch:
+            total_scanned += 1
+            if fetch_and_save_match(client, mid, dataset, target_patch=59, max_leaver_status=1):
+                matches_saved += 1
+                logger.info(f"[+] Match comunitário {mid} salvo com sucesso! (Salvas: {matches_saved}/{limit} | Escaneadas: {total_scanned}/{len(to_fetch)})")
+            else:
+                logger.debug(f"[-] Match comunitário {mid} descartado pelos filtros.")
+
+            if matches_saved >= limit:
+                logger.info("Limite de partidas atingido.")
+                break
+    except KeyboardInterrupt:
+        logger.warning("Interrupção pelo usuário recebida.")
+    finally:
+        logger.info(f"Ingestão comunitária do Patch 59 finalizada. Total salvo: {matches_saved} (Escaneadas: {total_scanned})")
+
 if __name__ == "__main__":
     from ..logger import setup_logging
     setup_logging()
 
     parser = argparse.ArgumentParser(description="Ingestão contínua de partidas OpenDota")
     parser.add_argument("--complete-patch59", action="store_true", help="Completar 100% das partidas pro do Patch 59")
-    parser.add_argument("--dataset", choices=["pro", "ranked_high"], default="pro", help="Origem do dataset")
+    parser.add_argument("--community-patch59", action="store_true", help="Ingerir partidas comunitárias/amadoras do Patch 59")
+    parser.add_argument("--dataset", choices=["pro", "ranked_high", "community"], default="pro", help="Origem do dataset")
     parser.add_argument("--direction", choices=["forward", "backfill"], default="forward", help="Sentido da coleta")
-    parser.add_argument("--limit", type=int, default=600, help="Quantidade de partidas aceitas a salvar")
+    parser.add_argument("--limit", type=int, default=500, help="Quantidade de partidas aceitas a salvar")
     parser.add_argument("--max-scanned", type=int, default=2000, help="Limite máximo de partidas a inspecionar")
     args = parser.parse_args()
 
     if args.complete_patch59:
         ingest_patch59_pro_window(limit=args.limit)
+    elif args.community_patch59 or args.dataset == "community":
+        ingest_patch59_community_matches(limit=args.limit)
     elif args.dataset == "pro":
         ingest_pro_matches(limit=args.limit, direction=args.direction, max_scanned=args.max_scanned)
     elif args.dataset == "ranked_high":
