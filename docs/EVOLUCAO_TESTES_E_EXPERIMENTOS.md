@@ -51,20 +51,20 @@ Ao longo do desenvolvimento, cada hipótese de engenharia de machine learning fo
 
 ### Tabela Comparativa de Evolução Empírica
 
-| Métrica / Parâmetro | Fase 1: Multi-Patch Mix | Fase 2: Augment + Val AUC | Fase 3: Patch 59 Pro 100% | Fase 4: Base Expandida (2.216) | **Fase 5: Base Consolidada (3.216)** |
+| Métrica / Parâmetro | Fase 2: Augment + Val AUC | Fase 3: Patch 59 Pro 100% | Fase 4: Base Expandida (2.216) | Fase 5: Base Consolidada (3.216) | **Fase 6: Cobertura 100% Patch 59 (3.488)** |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Dataset Utilizado** | 1.117 pro (58 + 59) | 1.443 pro (59) + 174 (58) | 1.709 pro (100% Patch 59) | 2.216 partidas (100% Patch 59) | **3.216 partidas (100% Patch 59)** |
-| **Composição da Base** | 100% Pro Tier 1/2 | 100% Pro Tier 1/2 | 100% Pro Tier 1/2 | 1.709 Pro + 507 Comunitárias | **1.709 Pro + 1.507 Comunitárias** |
-| **Modelo** | MLP Preliminar | PyTorch + Symmetry Augment | PyTorch + Patch Filter 59 | PyTorch + Comm CM (500) | **PyTorch + Comm CM (1.507)** |
-| **Split Temporal (Treino/Val/Teste)** | 782 / 167 / 168 | 1.010 / 216 / 217 | 1.196 / 256 / 257 | 1.551 / 332 / 333 | **2.251 / 482 / 483** |
-| **Melhor Val ROC-AUC** | 0.5120 | 0.5489 | 0.5489 | 0.5653 | **0.5574** |
-| **Test ROC-AUC** | 0.5050 | 0.5068 | 0.5302 | 0.5087 | **0.5404** 🏆 *(Novo Recorde Histórico)* |
-| **Test Accuracy** | 51.2% | 54.84% | 52.53% | 49.55% | **52.59%** |
-| **Test Log Loss (Sem Calibrar)** | 1.1500 | 1.0820 | 1.0119 | 0.7752 | **0.7922** 📉 *(Overfitting sob controle)* |
-| **Test Log Loss (Calibrado)** | N/A | 0.7248 | 0.7151 | 0.7078 | **0.6964** 🏆 *(Melhor calibração pré-jogo)* |
-| **Brier Score (Erro Quadrático)** | 0.2650 | 0.2612 | 0.2597 | 0.2570 | **0.2515** 🏆 *(Menor erro da série)* |
-| **Expected Calibration Error (ECE)** | Descalibrado | 0.0890 | 0.0766 | 0.0516 | **0.0528** 📉 *(Alta confiabilidade)* |
-| **Temperatura Ótima ($T$)** | N/A | 3.8400 | 3.6386 | 2.4661 | **3.0044** |
+| **Dataset Utilizado** | 1.443 pro (59) + 174 (58) | 1.709 pro (100% Patch 59) | 2.216 partidas (100% Patch 59) | 3.216 partidas (100% Patch 59) | **3.488 partidas (100% Patch 59)** |
+| **Composição da Base** | 100% Pro Tier 1/2 | 100% Pro Tier 1/2 | 1.709 Pro + 507 Comunitárias | 1.709 Pro + 1.507 Comunitárias | **1.709 Pro + 1.779 Comunitárias (Totalidade)** |
+| **Modelo** | PyTorch + Symmetry Augment | PyTorch + Patch Filter 59 | PyTorch + Comm CM (500) | PyTorch + Comm CM (1.507) | **PyTorch + 100% Pool CM Patch 59** |
+| **Split Temporal (Treino/Val/Teste)** | 1.010 / 216 / 217 | 1.196 / 256 / 257 | 1.551 / 332 / 333 | 2.251 / 482 / 483 | **2.441 / 523 / 524** |
+| **Melhor Val ROC-AUC** | 0.5489 | 0.5489 | 0.5653 | 0.5574 | **0.5711** 🏆 *(Recorde Histórico de Val)* |
+| **Test ROC-AUC** | 0.5068 | 0.5302 | 0.5087 | **0.5404** | **0.5236** *(Avaliado em 524 partidas futuras)* |
+| **Test Accuracy** | 54.84% | 52.53% | 49.55% | 52.59% | **50.57%** |
+| **Test Log Loss (Sem Calibrar)** | 1.0820 | 1.0119 | 0.7752 | 0.7922 | **1.0727** |
+| **Test Log Loss (Calibrado)** | 0.7248 | 0.7151 | 0.7078 | **0.6964** | **0.7224** |
+| **Brier Score (Erro Quadrático)** | 0.2612 | 0.2597 | 0.2570 | **0.2515** | **0.2632** |
+| **Expected Calibration Error (ECE)** | 0.0890 | 0.0766 | 0.0516 | 0.0528 | **0.0706** |
+| **Temperatura Ótima ($T$)** | 3.8400 | 3.6386 | 2.4661 | 3.0044 | **3.5969** |
 
 ---
 
