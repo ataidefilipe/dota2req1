@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def is_valid_match(match_data: dict) -> bool:
+def is_valid_match(match_data: dict, target_patch: int = None) -> bool:
     """
     Validates if a match meets the strict criteria for the dataset:
     1. Game Mode == 2 (Captain's Mode)
@@ -10,8 +10,16 @@ def is_valid_match(match_data: dict) -> bool:
     3. Target radiant_win is boolean (not None)
     4. Picks/Bans: Exactly 10 picks total, 5 per team, no duplicate picked heroes
     5. Players: Exactly 10 players, no leavers (leaver_status == 0), 5 per team
+    6. Patch == target_patch (if target_patch is specified and patch is present)
     """
     mid = match_data.get('match_id')
+
+    # 0. Patch filter
+    if target_patch is not None:
+        p = match_data.get('patch')
+        if p is not None and p != target_patch:
+            logger.debug(f"Match {mid} rejected: patch {p} != {target_patch}")
+            return False
 
     # 1. Game Mode
     if match_data.get('game_mode') != 2:

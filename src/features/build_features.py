@@ -33,6 +33,7 @@ class DatasetBuilder:
         query_matches = """
             SELECT match_id, radiant_win, patch_id, start_time
             FROM matches
+            WHERE patch_id = 59
             ORDER BY start_time ASC
         """
         

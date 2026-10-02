@@ -8,7 +8,7 @@ from ..features.filters import is_valid_match
 
 logger = logging.getLogger(__name__)
 
-def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str) -> bool:
+def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str, target_patch: int = 59) -> bool:
     """
     Fetches full match details, validates quality filters,
     and atomically saves match, draft_events, and match_players.
@@ -19,8 +19,8 @@ def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str) ->
             logger.warning(f"Match {match_id} not found or empty.")
             return False
 
-        # Apply Quality Filters (Captain's Mode, 10 picks, 5/side, duration >= 30m, leavers=0)
-        if not is_valid_match(data):
+        # Apply Quality Filters (Captain's Mode, 10 picks, 5/side, duration >= 30m, leavers=0, Patch 59)
+        if not is_valid_match(data, target_patch=target_patch):
             logger.debug(f"Match {match_id} filtered out (criteria not met).")
             return False
 
