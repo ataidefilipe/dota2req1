@@ -53,9 +53,10 @@ data/processed_neural/
 data/processed_neural_patch59/
 scratch/
 
-# Pesos binários pesados de modelos (manter metadados JSON)
-models/*.joblib
-models/**/*.pt
+# Pesos de modelos treinados para produção (pequenos: < 1MB)
+!models/draft_win_nn/weights.pt
+!models/draft_win_lr.joblib
+!models/draft_win_scaler.joblib
 
 # Unit test / coverage
 .coverage

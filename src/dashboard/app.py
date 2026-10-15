@@ -61,10 +61,16 @@ st.markdown("""
 
 @st.cache_data
 def load_data():
-    conn = sqlite3.connect('data/opendota.sqlite')
-    matches = pd.read_sql("SELECT * FROM matches", conn)
-    events = pd.read_sql("SELECT * FROM draft_events", conn)
-    conn.close()
+    matches = pd.DataFrame()
+    events = pd.DataFrame()
+    if os.path.exists('data/opendota.sqlite'):
+        try:
+            conn = sqlite3.connect('data/opendota.sqlite')
+            matches = pd.read_sql("SELECT * FROM matches", conn)
+            events = pd.read_sql("SELECT * FROM draft_events", conn)
+            conn.close()
+        except Exception:
+            pass
 
     heroes_map = {}
     heroes_name_to_id = {}
