@@ -14,6 +14,7 @@ import json
 import numpy as np
 from src.config import Config
 from src.features.composition_features import CompositionFeatureExtractor
+from src.betting.engine import evaluate_betting_opportunity, simulate_bankroll_growth
 
 # Configuração da página
 st.set_page_config(
@@ -374,12 +375,94 @@ def main():
                     st.write(f"- **Strong Dispels:** 🟢 `{len(rad_dispel)}` ({', '.join(rad_dispel) or 'Nenhum'}) | 🔴 `{len(dire_dispel)}` ({', '.join(dire_dispel) or 'Nenhum'})")
                     st.write(f"- **Hard Saves:** 🟢 `{len(rad_save)}` ({', '.join(rad_save) or 'Nenhum'}) | 🔴 `{len(dire_save)}` ({', '.join(dire_save) or 'Nenhum'})")
 
+            # 5. Calculadora Quantitativa de Apostas & Gestão de Banca (+EV)
+            st.markdown("---")
+            st.markdown("### 💰 Análise Quantitativa de Apostas & Gestão de Banca (+EV)")
+            st.caption("Compare as odds da casa com a probabilidade calibrada do modelo para identificar valor esperado (+EV) e dimensionar a aposta via Critério de Kelly Fracionário.")
+
+            col_o1, col_o2, col_b, col_r = st.columns([1, 1, 1.2, 1.2])
+            with col_o1:
+                odd_rad_input = st.number_input("Odd Radiant (Casa)", min_value=1.01, max_value=30.0, value=1.90, step=0.05, format="%.2f")
+            with col_o2:
+                odd_dire_input = st.number_input("Odd Dire (Casa)", min_value=1.01, max_value=30.0, value=1.90, step=0.05, format="%.2f")
+            with col_b:
+                bankroll_input = st.number_input("Sua Banca Total (R$)", min_value=10.0, max_value=1000000.0, value=1000.0, step=50.0, format="%.2f")
+            with col_r:
+                risk_profile = st.selectbox(
+                    "Perfil de Gestão (Kelly)",
+                    options=[
+                        "Conservador (Quarter Kelly 25%)",
+                        "Moderado (Half Kelly 50%)",
+                        "Agressivo (Full Kelly 100%)"
+                    ],
+                    index=0
+                )
+
+            kelly_mult = 0.25 if "Conservador" in risk_profile else (0.50 if "Moderado" in risk_profile else 1.00)
+
+            opp = evaluate_betting_opportunity(
+                p_model_radiant=prob_rad,
+                odd_radiant=odd_rad_input,
+                odd_dire=odd_dire_input,
+                bankroll=bankroll_input,
+                kelly_multiplier=kelly_mult,
+                max_stake_pct=0.05,
+                min_ev=0.03
+            )
+
+            if opp.is_actionable:
+                st.success(f"🟢 **OPORTUNIDADE +EV IDENTIFICADA: APOSTAR NO {opp.side_name.upper()}** (Odd: `{opp.odd:.2f}`)")
+
+                b_m1, b_m2, b_m3, b_m4 = st.columns(4)
+                with b_m1:
+                    st.metric("Aposta Recomendada (Stake)", f"R$ {opp.recommended_stake:.2f}", f"{opp.stake_percentage:.2f}% da banca")
+                with b_m2:
+                    st.metric("Retorno Esperado (+EV)", f"+{opp.ev*100:.1f}%", "Por real apostado")
+                with b_m3:
+                    st.metric("Vantagem s/ Casa (Edge)", f"+{opp.edge*100:.1f}%", f"Modelo {opp.model_prob*100:.1f}% vs Casa {opp.market_prob_fair*100:.1f}%")
+                with b_m4:
+                    lucro_liq = opp.recommended_stake * (opp.odd - 1.0)
+                    st.metric("Lucro Líquido Estimado", f"R$ {lucro_liq:.2f}", f"Retorno Bruto: R$ {opp.recommended_stake * opp.odd:.2f}")
+
+                st.caption(f"ℹ️ **Diagnóstico:** {opp.reason}")
+            else:
+                st.warning("🔴 **SEM VALOR MATEMÁTICO: NENHUMA APOSTA RECOMENDADA**")
+                st.write(f"ℹ️ {opp.reason}")
+
+            with st.expander("📈 Ver Simulação de Monte Carlo da Banca (Projeção de 200 apostas)"):
+                st.markdown("Projeção probabilística de evolução do patrimônio repetindo este padrão de vantagem ao longo de 200 apostas sequenciais:")
+
+                sim_target_prob = opp.model_prob if opp.is_actionable else max(prob_rad, 1.0 - prob_rad)
+                sim_target_odd = opp.odd if opp.is_actionable else (odd_rad_input if prob_rad >= 0.5 else odd_dire_input)
+
+                mc = simulate_bankroll_growth(
+                    p_win=sim_target_prob,
+                    odd=sim_target_odd,
+                    initial_bankroll=bankroll_input,
+                    kelly_multiplier=kelly_mult,
+                    max_stake_pct=0.05,
+                    n_bets=200,
+                    n_simulations=100
+                )
+
+                mc_col1, mc_col2, mc_col3 = st.columns(3)
+                with mc_col1:
+                    st.metric("Banca Mediana Projetada", f"R$ {mc.median_final_bankroll:.2f}", f"{((mc.median_final_bankroll / bankroll_input) - 1.0)*100:+.1f}% de ROI")
+                with mc_col2:
+                    st.metric("Pior Drawdown Mediano", f"{mc.max_drawdown_median:.1f}%", "Oscilação máxima esperada")
+                with mc_col3:
+                    st.metric("Risco de Perda Severa (>50%)", f"{mc.risk_of_ruin:.1f}%", "Probabilidade de perda >50%")
+
+                df_trajs = pd.DataFrame({f"Trajetória {i+1}": traj for i, traj in enumerate(mc.trajectories_sample)})
+                st.line_chart(df_trajs, height=250)
+
     # 4. Abas de Apoio e Storytelling (Abaixo da Seção Principal)
     st.markdown("---")
     st.subheader("📚 Inteligência de Domínio & Auditoria do Modelo")
-    story_tab1, story_tab2, story_tab3 = st.tabs([
+    story_tab1, story_tab2, story_tab3, story_tab4 = st.tabs([
         "🦸 Meta-Game & Arquétipos do Patch 60",
         "🔬 A Ciência do Modelo (Auditoria)",
+        "💰 Teoria dos Jogos & Gestão de Banca",
         "📊 Dados & Volume de Partidas"
     ])
 
@@ -450,8 +533,35 @@ def main():
             st.markdown("###### 🎯 Calibração de Probabilidade")
             st.write("Temperatura calibrada ($T=1.09$) garantindo que uma predição de 70% reflete uma frequência de vitória real de 7 em cada 10 partidas.")
 
-    # Aba 3: Dados & Histórico do Dataset
+    # Aba 3: Teoria dos Jogos & Gestão de Banca
     with story_tab3:
+        st.markdown("##### 🎲 Matemática Quantitativa: Por que o Longo Prazo Ganha das Casas de Apostas")
+        st.caption("Apostar com sucesso não é tentar adivinhar todas as partidas, mas sim encontrar assimetrias de preço (+EV) e gerenciar a banca para eliminar o risco de ruína.")
+
+        tg_col1, tg_col2 = st.columns(2)
+        with tg_col1:
+            with st.container(border=True):
+                st.markdown("###### 1. O que é o Valor Esperado (+EV)?")
+                st.write("Se uma moeda justa paga odd 2.20 para sair cara, você tem uma aposta com **+10% de EV**. Mesmo perdendo algumas rodadas pontuais, em centenas de repetições seu patrimônio crescerá de forma previsível.")
+                st.latex(r"\text{EV} = (P_{\text{modelo}} \times \text{Odd}) - 1")
+
+            with st.container(border=True):
+                st.markdown("###### 2. O Vigorish (A Taxa da Casa)")
+                st.write("As casas de apostas embutem uma comissão invisível (overround) de 5% a 10% nas cotações. Apostar 'no feeling' significa lutar contra essa taxa constante. Nosso motor desconta essa margem para revelar a probabilidade justa.")
+                st.latex(r"\text{Vig} = \left(\frac{1}{\text{Odd}_{\text{Rad}}} + \frac{1}{\text{Odd}_{\text{Dire}}}\right) - 1")
+
+        with tg_col2:
+            with st.container(border=True):
+                st.markdown("###### 3. O Critério de Kelly Fracionário")
+                st.write("Criado por John Kelly no Bell Labs e adotado por fundos quantitativos, calcula o tamanho exato da aposta. Usamos o **Quarter Kelly (25%)**, que oferece ~85% do crescimento teórico reduzindo a volatilidade em 75%.")
+                st.latex(r"f^* = \frac{P \times O - 1}{O - 1} \implies \text{Stake} = \text{Banca} \times \min(0.25 \times f^*, 5\%)")
+
+            with st.container(border=True):
+                st.markdown("###### 4. A Assimetria do Live Draft no Dota 2")
+                st.write("Três quartos da partida dependem da dinâmica dos 10 heróis. Enquanto a maioria do mercado aposta na fama dos times, nosso motor analisa matchups 1v1, sinergias e escalonamento em milissegundos.")
+
+    # Aba 4: Dados & Histórico do Dataset
+    with story_tab4:
         st.markdown("##### 📊 Metadados do Banco SQLite de Treinamento")
         c1, c2, c3 = st.columns(3)
         c1.metric("Partidas Válidas", f"{len(matches):,}")
