@@ -1,24 +1,24 @@
 {
   "matches_by_dataset": {
     "community": 1779,
-    "pro": 1709
+    "pro": 1670
   },
-  "radiant_win_rate": 0.5189220183486238,
-  "total_matches": 3488,
+  "radiant_win_rate": 0.5181211945491446,
+  "total_matches": 3449,
   "duration_minutes": {
-    "min": 21.8,
-    "avg": 39.22,
+    "min": 30.0,
+    "avg": 39.35,
     "max": 102.1
   },
   "matches_by_patch": {
-    "59": 3488
+    "59": 3449
   },
   "player_telemetry": {
-    "total_players_recorded": 34880,
+    "total_players_recorded": 34490,
     "players_with_rank_tier": 24659,
-    "rank_tier_coverage_pct": 70.7,
+    "rank_tier_coverage_pct": 71.5,
     "players_with_computed_mmr": 16727,
-    "computed_mmr_coverage_pct": 47.96,
+    "computed_mmr_coverage_pct": 48.5,
     "avg_computed_mmr": 4160.19
   },
   "time_range": {

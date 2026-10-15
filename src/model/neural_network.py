@@ -180,6 +180,7 @@ class DotaWinPredictorNN(nn.Module):
         hero_dim: int = 32,
         patch_dim: int = 8,
         rank_dim: int = 8,
+        comp_dim: int = 21,
         dropout: float = 0.10
     ):
         super().__init__()
@@ -187,6 +188,7 @@ class DotaWinPredictorNN(nn.Module):
         self.num_patches = num_patches
         self.num_ranks = num_ranks
         self.hero_dim = hero_dim
+        self.comp_dim = comp_dim
 
         # 1. Embeddings
         self.hero_embed = nn.Embedding(num_heroes, hero_dim, padding_idx=0)
@@ -200,8 +202,8 @@ class DotaWinPredictorNN(nn.Module):
 
         # Dimensão por equipe z_T: 32 (self) + 32 (cross) + 32 (bans) + 16 (skill) = 112
         team_dim = hero_dim * 3 + 16
-        # Fusão: [z_R; z_D; z_R - z_D; z_R * z_D; E_patch] = 112 * 4 + 8 = 456
-        fusion_dim = team_dim * 4 + patch_dim
+        # Fusão: [z_R; z_D; z_R - z_D; z_R * z_D; E_patch; comp_delta] = 112 * 4 + 8 + comp_dim
+        fusion_dim = team_dim * 4 + patch_dim + comp_dim
 
         # 3. Cabeça de Classificação
         self.head = nn.Sequential(
@@ -301,14 +303,22 @@ class DotaWinPredictorNN(nn.Module):
         # Patch Embedding
         patch_emb = self.patch_embed(batch['patch']) # [B, 8]
 
-        # Fusão de características: [B, 456]
-        u = torch.cat([
+        # Fusão de características: [B, 456 + comp_dim]
+        fusion_parts = [
             z_rad,
             z_dire,
             z_rad - z_dire,
             z_rad * z_dire,
             patch_emb
-        ], dim=-1)
+        ]
+        if self.comp_dim > 0:
+            if 'composition_delta' in batch and batch['composition_delta'] is not None:
+                fusion_parts.append(batch['composition_delta'])
+            else:
+                B = z_rad.shape[0]
+                fusion_parts.append(torch.zeros((B, self.comp_dim), device=z_rad.device, dtype=z_rad.dtype))
+
+        u = torch.cat(fusion_parts, dim=-1)
 
         # Logit final [B]
         logits = self.head(u).squeeze(-1)

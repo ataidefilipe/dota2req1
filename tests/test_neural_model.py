@@ -91,5 +91,27 @@ class TestNeuralModel(unittest.TestCase):
         self.assertEqual(probs.shape, logits.shape)
         self.assertTrue((probs >= 0.0).all() and (probs <= 1.0).all())
 
+    def test_composition_delta_forward(self):
+        """Verifica que o modelo aceita e propaga tensores de composition_delta."""
+        B = 2
+        batch = {
+            'picks': torch.randint(1, 40, (B, 2, 5)),
+            'bans': torch.randint(1, 40, (B, 2, 1)),
+            'bans_mask': torch.ones((B, 2, 1), dtype=torch.bool),
+            'bans_available': torch.ones((B, 2, 1), dtype=torch.float32),
+            'ranks': torch.randint(1, 8, (B, 2, 5)),
+            'mmr': torch.randn((B, 2, 5, 1)),
+            'skill_masks': torch.ones((B, 2, 5, 2), dtype=torch.float32),
+            'patch': torch.randint(1, 4, (B,)),
+            'match_ids': torch.tensor([1, 2]),
+            'composition_delta': torch.randn((B, 21), dtype=torch.float32)
+        }
+        self.model.eval()
+        with torch.no_grad():
+            logits = self.model(batch)
+        self.assertEqual(logits.shape, torch.Size([B]))
+        self.assertFalse(torch.isnan(logits).any())
+
 if __name__ == '__main__':
     unittest.main()
+

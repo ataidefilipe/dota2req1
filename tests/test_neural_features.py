@@ -106,5 +106,8 @@ class TestNeuralFeatures(unittest.TestCase):
         self.assertEqual(list(batch['target'].shape), [2])
         self.assertEqual(batch['target'].dtype, torch.float32)
 
+        self.assertEqual(list(batch['composition_delta'].shape), [2, 21])
+        self.assertEqual(batch['composition_delta'].dtype, torch.float32)
+
 if __name__ == '__main__':
     unittest.main()

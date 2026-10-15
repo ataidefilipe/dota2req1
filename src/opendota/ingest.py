@@ -1,6 +1,9 @@
 import logging
 import argparse
 import sys
+import os
+import json
+from datetime import datetime
 from .client import OpenDotaClient
 from ..db import repo
 from ..config import Config
@@ -8,18 +11,53 @@ from ..features.filters import is_valid_match
 
 logger = logging.getLogger(__name__)
 
-def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str, target_patch: int = 59, max_leaver_status: int = 0) -> bool:
+PATCH_TIMESTAMPS = {
+    59: {"start": 1765849783, "end": 1774313459, "name": "7.40"},
+    60: {"start": 1774313459, "end": None, "name": "7.41"},
+}
+
+def get_patch_time_bounds(patch_id: int):
+    """
+    Retorna tupla (min_start_time, max_start_time) para um patch_id.
+    Tenta primeiro o dicionário PATCH_TIMESTAMPS, depois data/constants/patch.json.
+    """
+    if patch_id in PATCH_TIMESTAMPS:
+        return PATCH_TIMESTAMPS[patch_id]["start"], PATCH_TIMESTAMPS[patch_id]["end"]
+
+    constants_path = os.path.join("data", "constants", "patch.json")
+    if os.path.exists(constants_path):
+        try:
+            with open(constants_path, "r", encoding="utf-8") as f:
+                patches = json.load(f)
+            for i, p in enumerate(patches):
+                if p.get("id") == patch_id:
+                    dt = datetime.fromisoformat(p["date"].replace("Z", "+00:00"))
+                    st = int(dt.timestamp())
+                    et = None
+                    if i + 1 < len(patches):
+                        dt_next = datetime.fromisoformat(patches[i+1]["date"].replace("Z", "+00:00"))
+                        et = int(dt_next.timestamp())
+                    return st, et
+        except Exception as e:
+            logger.warning(f"Erro ao ler patch.json para patch {patch_id}: {e}")
+
+    return None, None
+
+def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str, target_patch: int = None, max_leaver_status: int = 0) -> bool:
     """
     Fetches full match details, validates quality filters,
     and atomically saves match, draft_events, and match_players.
     """
+    if target_patch is None:
+        target_patch = Config.TARGET_PATCH
+
     try:
         data = client.get(f"/matches/{match_id}")
         if not data:
             logger.warning(f"Match {match_id} not found or empty.")
             return False
 
-        # Apply Quality Filters (Captain's Mode, 10 picks, 5/side, duration >= 30m, leavers <= max_leaver_status, Patch 59)
+        # Apply Quality Filters (Captain's Mode, 10 picks, 5/side, duration >= 30m, leavers <= max_leaver_status, target_patch)
         if not is_valid_match(data, target_patch=target_patch, max_leaver_status=max_leaver_status):
             logger.debug(f"Match {match_id} filtered out (criteria not met).")
             return False
@@ -31,7 +69,10 @@ def fetch_and_save_match(client: OpenDotaClient, match_id: int, dataset: str, ta
         logger.error(f"Failed to ingest match {match_id}: {e}")
         return False
 
-def ingest_pro_matches(limit: int = 100, direction: str = "forward", max_scanned: int = 5000):
+def ingest_pro_matches(limit: int = 100, direction: str = "forward", max_scanned: int = 5000, target_patch: int = None):
+    if target_patch is None:
+        target_patch = Config.TARGET_PATCH
+
     client = OpenDotaClient()
     dataset = "pro"
     
@@ -46,7 +87,7 @@ def ingest_pro_matches(limit: int = 100, direction: str = "forward", max_scanned
                 row = conn.execute("SELECT min(match_id) FROM matches WHERE dataset = 'pro'").fetchone()
                 last_min_id = row[0] if (row and row[0]) else 0
         
-        logger.info(f"Iniciando Backfill de Pro Matches. Ponto de partida (less_than_match_id): {last_min_id or 'Mais recentes'}")
+        logger.info(f"Iniciando Backfill de Pro Matches (Patch {target_patch}). Ponto de partida (less_than_match_id): {last_min_id or 'Mais recentes'}")
         current_cursor = last_min_id if last_min_id > 0 else None
 
         try:
@@ -67,7 +108,7 @@ def ingest_pro_matches(limit: int = 100, direction: str = "forward", max_scanned
                     current_cursor = mid if current_cursor is None else min(current_cursor, mid)
                     total_scanned += 1
 
-                    if fetch_and_save_match(client, mid, dataset):
+                    if fetch_and_save_match(client, mid, dataset, target_patch=target_patch):
                         matches_saved += 1
                         logger.info(f"[+] Match {mid} salvo com sucesso! (Salvas: {matches_saved}/{limit} | Escaneadas: {total_scanned})")
                     else:
@@ -95,17 +136,15 @@ def ingest_pro_matches(limit: int = 100, direction: str = "forward", max_scanned
                 row = conn.execute("SELECT max(match_id) FROM matches WHERE dataset = 'pro'").fetchone()
                 last_id = row[0] if (row and row[0]) else 0
 
-        logger.info(f"Iniciando Ingestão Incremental (Forward). Último match_id conhecido: {last_id}")
+        logger.info(f"Iniciando Ingestão Incremental Forward (Patch {target_patch}). Último match_id conhecido: {last_id}")
         max_id_seen = last_id
 
         try:
-            # Pega as partidas mais recentes
             batch = client.get("/proMatches", {})
             if not batch:
                 logger.info("Nenhuma partida encontrada.")
                 return
 
-            # Ordena por match_id ASC para processar cronologicamente
             batch.sort(key=lambda x: x["match_id"])
             new_matches = [m for m in batch if m["match_id"] > last_id]
 
@@ -116,7 +155,7 @@ def ingest_pro_matches(limit: int = 100, direction: str = "forward", max_scanned
                 total_scanned += 1
                 logger.info(f"Processando Pro Match {mid}...")
 
-                if fetch_and_save_match(client, mid, dataset):
+                if fetch_and_save_match(client, mid, dataset, target_patch=target_patch):
                     matches_saved += 1
                     logger.info(f"[+] Match {mid} salvo! (Salvas: {matches_saved}/{limit})")
 
@@ -135,7 +174,10 @@ def ingest_pro_matches(limit: int = 100, direction: str = "forward", max_scanned
                 repo.set_ingestion_state("pro", max_id_seen)
             logger.info(f"Ingestão Forward concluída. Total salvo: {matches_saved}")
 
-def ingest_public_matches(limit: int = 100, direction: str = "backfill", max_scanned: int = 5000):
+def ingest_public_matches(limit: int = 100, direction: str = "backfill", max_scanned: int = 5000, target_patch: int = None):
+    if target_patch is None:
+        target_patch = Config.TARGET_PATCH
+
     client = OpenDotaClient()
     dataset = "ranked_high"
     min_rank = Config.PUBLICMATCHES_MIN_RANK
@@ -166,7 +208,7 @@ def ingest_public_matches(limit: int = 100, direction: str = "backfill", max_sca
                 current_cursor = mid if current_cursor is None else min(current_cursor, mid)
                 total_scanned += 1
 
-                if fetch_and_save_match(client, mid, dataset):
+                if fetch_and_save_match(client, mid, dataset, target_patch=target_patch):
                     matches_saved += 1
                     logger.info(f"[+] Match público {mid} salvo! ({matches_saved}/{limit})")
 
@@ -183,32 +225,43 @@ def ingest_public_matches(limit: int = 100, direction: str = "backfill", max_sca
             repo.set_ingestion_state("ranked_high_backfill", current_cursor)
         logger.info(f"Ingestão pública concluída. Salvas: {matches_saved} (Escaneadas: {total_scanned})")
 
-def ingest_patch59_pro_window(limit: int = 600):
+def ingest_patch_pro_window(patch_id: int = None, limit: int = 600):
     """
-    Ingere cirurgicamente todas as partidas profissionais do Patch 59 
-    compreendidas entre 20/02/2026 e 24/03/2026 via OpenDota Explorer SQL.
+    Ingere partidas profissionais e premium de Captain's Mode pertencentes ao patch_id especificado
+    via OpenDota Explorer SQL com pré-filtro de duração >= 30m.
     """
+    if patch_id is None:
+        patch_id = Config.TARGET_PATCH
+
     client = OpenDotaClient()
     dataset = "pro"
-    
-    sql = """
+
+    min_time, max_time = get_patch_time_bounds(patch_id)
+    where_clauses = [
+        "m.game_mode = 2",
+        "l.tier in ('professional', 'premium')",
+        "m.duration >= 1800"
+    ]
+    if min_time is not None:
+        where_clauses.append(f"m.start_time >= {min_time}")
+    if max_time is not None:
+        where_clauses.append(f"m.start_time < {max_time}")
+
+    sql = f"""
     SELECT m.match_id
     FROM matches m
     JOIN leagues l ON m.leagueid = l.leagueid
-    WHERE m.game_mode = 2 
-      AND l.tier in ('professional', 'premium')
-      AND m.start_time >= 1771620603 
-      AND m.start_time < 1774313459
+    WHERE {' AND '.join(where_clauses)}
     ORDER BY m.match_id ASC
     """
-    logger.info("Consultando lista de partidas profissionais do Patch 59 via OpenDota Explorer...")
+    logger.info(f"Consultando lista de partidas profissionais do Patch {patch_id} via OpenDota Explorer...")
     res = client.get("/explorer", params={"sql": sql})
     if not res or "rows" not in res:
-        logger.error("Falha ao obter lista de partidas do Explorer.")
+        logger.error(f"Falha ao obter lista de partidas pro do Explorer para Patch {patch_id}.")
         return
 
     mids = [row["match_id"] for row in res.get("rows", [])]
-    logger.info(f"Total de {len(mids)} partidas profissionais encontradas no período restante do Patch 59.")
+    logger.info(f"Total de {len(mids)} partidas profissionais encontradas para o Patch {patch_id}.")
 
     with repo.get_db_connection() as conn:
         if mids:
@@ -218,18 +271,26 @@ def ingest_patch59_pro_window(limit: int = 600):
             existing = set()
 
     to_fetch = [mid for mid in mids if mid not in existing]
-    logger.info(f"{len(existing)} partidas já constam no banco. Restam {len(to_fetch)} para processar.")
+    max_existing = max(existing) if existing else 0
+    # Prioritiza partidas novas após o último match salvo para evitar re-escanear partidas rejeitadas
+    new_mids = [m for m in to_fetch if m > max_existing]
+    older_mids = [m for m in to_fetch if m <= max_existing]
+    to_fetch_ordered = new_mids + older_mids
+
+    logger.info(f"{len(existing)} partidas já constam no banco. Restam {len(to_fetch_ordered)} para processar ({len(new_mids)} novas à frente).")
 
     matches_saved = 0
     total_scanned = 0
 
     try:
-        for mid in to_fetch:
+        for mid in to_fetch_ordered:
             total_scanned += 1
-            if fetch_and_save_match(client, mid, dataset, target_patch=59):
+            if fetch_and_save_match(client, mid, dataset, target_patch=patch_id):
                 matches_saved += 1
-                logger.info(f"[+] Match {mid} salvo com sucesso! (Salvas: {matches_saved} | Escaneadas: {total_scanned}/{len(to_fetch)})")
+                logger.info(f"[+] Match pro {mid} salvo com sucesso! (Salvas: {matches_saved}/{limit} | Escaneadas: {total_scanned}/{len(to_fetch_ordered)})")
             else:
+                if total_scanned % 25 == 0:
+                    logger.info(f"Progresso de varredura pro: {matches_saved}/{limit} salvas | Escaneadas: {total_scanned}/{len(to_fetch_ordered)}")
                 logger.debug(f"[-] Match {mid} descartado pelos filtros.")
 
             if matches_saved >= limit:
@@ -238,36 +299,45 @@ def ingest_patch59_pro_window(limit: int = 600):
     except KeyboardInterrupt:
         logger.warning("Interrupção pelo usuário recebida.")
     finally:
-        logger.info(f"Conclusão do Patch 59 finalizada. Total salvo: {matches_saved} (Escaneadas: {total_scanned})")
+        logger.info(f"Ingestão profissional do Patch {patch_id} finalizada. Total salvo: {matches_saved} (Escaneadas: {total_scanned})")
 
-def ingest_patch59_community_matches(limit: int = 500):
+def ingest_patch_community_matches(patch_id: int = None, limit: int = 500):
     """
     Ingere partidas de Captain's Mode de ligas comunitárias, amadoras e semiprofissionais
-    (tier = 'excluded') pertencentes ao Patch 59 (Dota 2 v7.40) via OpenDota Explorer SQL.
-    Aplica pré-filtro m.duration >= 1800 diretamente no SQL para economizar requisições à API.
+    (tier = 'excluded') pertencentes ao patch_id especificado via OpenDota Explorer SQL.
     """
+    if patch_id is None:
+        patch_id = Config.TARGET_PATCH
+
     client = OpenDotaClient()
     dataset = "community"
-    
-    sql = """
+
+    min_time, max_time = get_patch_time_bounds(patch_id)
+    where_clauses = [
+        "m.game_mode = 2",
+        "l.tier = 'excluded'",
+        "m.duration >= 1800"
+    ]
+    if min_time is not None:
+        where_clauses.append(f"m.start_time >= {min_time}")
+    if max_time is not None:
+        where_clauses.append(f"m.start_time < {max_time}")
+
+    sql = f"""
     SELECT m.match_id
     FROM matches m
     JOIN leagues l ON m.leagueid = l.leagueid
-    WHERE m.game_mode = 2 
-      AND l.tier = 'excluded'
-      AND m.duration >= 1800
-      AND m.start_time >= 1765849783 
-      AND m.start_time < 1774313459
+    WHERE {' AND '.join(where_clauses)}
     ORDER BY m.match_id ASC
     """
-    logger.info("Consultando lista de partidas comunitárias/amadoras do Patch 59 via OpenDota Explorer...")
+    logger.info(f"Consultando lista de partidas comunitárias do Patch {patch_id} via OpenDota Explorer...")
     res = client.get("/explorer", params={"sql": sql})
     if not res or "rows" not in res:
-        logger.error("Falha ao obter lista de partidas comunitárias do Explorer.")
+        logger.error(f"Falha ao obter lista de partidas comunitárias do Explorer para Patch {patch_id}.")
         return
 
     mids = [row["match_id"] for row in res.get("rows", [])]
-    logger.info(f"Total de {len(mids)} partidas comunitárias (duration >= 30m) encontradas no Patch 59.")
+    logger.info(f"Total de {len(mids)} partidas comunitárias (duration >= 30m) encontradas no Patch {patch_id}.")
 
     with repo.get_db_connection() as conn:
         if mids:
@@ -277,18 +347,25 @@ def ingest_patch59_community_matches(limit: int = 500):
             existing = set()
 
     to_fetch = [mid for mid in mids if mid not in existing]
-    logger.info(f"{len(existing)} partidas já constam no banco. Restam {len(to_fetch)} para processar.")
+    max_existing = max(existing) if existing else 0
+    new_mids = [m for m in to_fetch if m > max_existing]
+    older_mids = [m for m in to_fetch if m <= max_existing]
+    to_fetch_ordered = new_mids + older_mids
+
+    logger.info(f"{len(existing)} partidas já constam no banco. Restam {len(to_fetch_ordered)} para processar ({len(new_mids)} novas à frente).")
 
     matches_saved = 0
     total_scanned = 0
 
     try:
-        for mid in to_fetch:
+        for mid in to_fetch_ordered:
             total_scanned += 1
-            if fetch_and_save_match(client, mid, dataset, target_patch=59, max_leaver_status=1):
+            if fetch_and_save_match(client, mid, dataset, target_patch=patch_id, max_leaver_status=1):
                 matches_saved += 1
-                logger.info(f"[+] Match comunitário {mid} salvo com sucesso! (Salvas: {matches_saved}/{limit} | Escaneadas: {total_scanned}/{len(to_fetch)})")
+                logger.info(f"[+] Match comunitário {mid} salvo com sucesso! (Salvas: {matches_saved}/{limit} | Escaneadas: {total_scanned}/{len(to_fetch_ordered)})")
             else:
+                if total_scanned % 25 == 0:
+                    logger.info(f"Progresso de varredura comunitária: {matches_saved}/{limit} salvas | Escaneadas: {total_scanned}/{len(to_fetch_ordered)}")
                 logger.debug(f"[-] Match comunitário {mid} descartado pelos filtros.")
 
             if matches_saved >= limit:
@@ -297,26 +374,40 @@ def ingest_patch59_community_matches(limit: int = 500):
     except KeyboardInterrupt:
         logger.warning("Interrupção pelo usuário recebida.")
     finally:
-        logger.info(f"Ingestão comunitária do Patch 59 finalizada. Total salvo: {matches_saved} (Escaneadas: {total_scanned})")
+        logger.info(f"Ingestão comunitária do Patch {patch_id} finalizada. Total salvo: {matches_saved} (Escaneadas: {total_scanned})")
+
+# Funções de compatibilidade para Patch 59
+def ingest_patch59_pro_window(limit: int = 600):
+    return ingest_patch_pro_window(patch_id=59, limit=limit)
+
+def ingest_patch59_community_matches(limit: int = 500):
+    return ingest_patch_community_matches(patch_id=59, limit=limit)
 
 if __name__ == "__main__":
     from ..logger import setup_logging
     setup_logging()
 
-    parser = argparse.ArgumentParser(description="Ingestão contínua de partidas OpenDota")
-    parser.add_argument("--complete-patch59", action="store_true", help="Completar 100% das partidas pro do Patch 59")
-    parser.add_argument("--community-patch59", action="store_true", help="Ingerir partidas comunitárias/amadoras do Patch 59")
+    parser = argparse.ArgumentParser(description="Ingestão de partidas OpenDota")
+    parser.add_argument("--patch", type=int, default=Config.TARGET_PATCH, help=f"ID do patch alvo (default: {Config.TARGET_PATCH})")
+    parser.add_argument("--complete-patch", action="store_true", help="Ingerir partidas pro do patch alvo via Explorer")
+    parser.add_argument("--community-patch", action="store_true", help="Ingerir partidas comunitárias do patch alvo via Explorer")
+    parser.add_argument("--complete-patch59", action="store_true", help="Compatibilidade: Ingerir partidas pro do Patch 59")
+    parser.add_argument("--community-patch59", action="store_true", help="Compatibilidade: Ingerir partidas comunitárias do Patch 59")
     parser.add_argument("--dataset", choices=["pro", "ranked_high", "community"], default="pro", help="Origem do dataset")
     parser.add_argument("--direction", choices=["forward", "backfill"], default="forward", help="Sentido da coleta")
     parser.add_argument("--limit", type=int, default=500, help="Quantidade de partidas aceitas a salvar")
     parser.add_argument("--max-scanned", type=int, default=2000, help="Limite máximo de partidas a inspecionar")
     args = parser.parse_args()
 
-    if args.complete_patch59:
+    if args.complete_patch:
+        ingest_patch_pro_window(patch_id=args.patch, limit=args.limit)
+    elif args.community_patch or args.dataset == "community":
+        ingest_patch_community_matches(patch_id=args.patch, limit=args.limit)
+    elif args.complete_patch59:
         ingest_patch59_pro_window(limit=args.limit)
-    elif args.community_patch59 or args.dataset == "community":
+    elif args.community_patch59:
         ingest_patch59_community_matches(limit=args.limit)
     elif args.dataset == "pro":
-        ingest_pro_matches(limit=args.limit, direction=args.direction, max_scanned=args.max_scanned)
+        ingest_pro_matches(limit=args.limit, direction=args.direction, max_scanned=args.max_scanned, target_patch=args.patch)
     elif args.dataset == "ranked_high":
-        ingest_public_matches(limit=args.limit, direction=args.direction, max_scanned=args.max_scanned)
+        ingest_public_matches(limit=args.limit, direction=args.direction, max_scanned=args.max_scanned, target_patch=args.patch)

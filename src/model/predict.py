@@ -12,10 +12,13 @@ logger = logging.getLogger(__name__)
 class WinPredictor:
     def __init__(self, model_dir='models', data_dir='data/processed', constants_file='data/heroes.json'):
         self.model_path = os.path.join(model_dir, 'draft_win_lr.joblib')
+        self.scaler_path = os.path.join(model_dir, 'draft_win_scaler.joblib')
         self.feature_map_path = os.path.join(data_dir, 'feature_map.json')
         self.heroes_path = constants_file
         
         self.model = None
+        self.scaler = None
+        self.comp_extractor = None
         self.feature_map = None
         self.heroes_name_to_id = {}
         self.heroes_id_to_name = {}
@@ -26,6 +29,12 @@ class WinPredictor:
             raise FileNotFoundError(f"Model not found at {self.model_path}. Run train.py first.")
         self.model = joblib.load(self.model_path)
         
+        # Load Scaler if present
+        if os.path.exists(self.scaler_path):
+            self.scaler = joblib.load(self.scaler_path)
+            from ..features.composition_features import CompositionFeatureExtractor
+            self.comp_extractor = CompositionFeatureExtractor()
+
         # Load Feature Map
         if not os.path.exists(self.feature_map_path):
              raise FileNotFoundError(f"Feature map not found at {self.feature_map_path}. Run build_features.py first.")
@@ -123,8 +132,20 @@ class WinPredictor:
             add_feature(f"patch_{patch_id}")
             
         # Create Sparse Matrix
-        X = sparse.coo_matrix((data, (rows, cols)), shape=(1, n_features))
+        X = sparse.coo_matrix((data, (rows, cols)), shape=(1, n_features)).tocsr()
         
+        # Se o modelo requer as features de composição
+        if hasattr(self.model, 'n_features_in_') and self.model.n_features_in_ > n_features:
+            rad_ids = [self.resolve_hero(h) for h in radiant_heroes if self.resolve_hero(h)]
+            dire_ids = [self.resolve_hero(h) for h in dire_heroes if self.resolve_hero(h)]
+            if len(rad_ids) == 5 and len(dire_ids) == 5 and self.comp_extractor and self.scaler:
+                raw_delta = self.comp_extractor.transform(rad_ids, dire_ids)
+                scaled_delta = self.scaler.transform(raw_delta.reshape(1, -1))
+                X = sparse.hstack([X, sparse.csr_matrix(scaled_delta)], format='csr')
+            else:
+                extra_dim = self.model.n_features_in_ - n_features
+                X = sparse.hstack([X, sparse.csr_matrix((1, extra_dim))], format='csr')
+
         # Predict
         prob = self.model.predict_proba(X)[0, 1]
         return prob

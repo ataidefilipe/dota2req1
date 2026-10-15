@@ -170,3 +170,42 @@ def set_ingestion_state(dataset: str, last_match_id: int):
     with get_db_connection() as conn:
         conn.execute(query, (dataset, last_match_id))
         conn.commit()
+
+def upsert_heroes(heroes: list, conn: sqlite3.Connection = None):
+    """
+    Inserts or updates hero reference data in hero_ref table.
+    """
+    query = '''
+    INSERT INTO hero_ref (hero_id, name, localized_name)
+    VALUES (?, ?, ?)
+    ON CONFLICT(hero_id) DO UPDATE SET
+        name=excluded.name,
+        localized_name=excluded.localized_name
+    '''
+    data = [(h.get('id'), h.get('name'), h.get('localized_name')) for h in heroes if h.get('id')]
+    if conn is not None:
+        conn.executemany(query, data)
+    else:
+        with get_db_connection() as c:
+            c.executemany(query, data)
+            c.commit()
+
+def upsert_patches(patches: list, conn: sqlite3.Connection = None):
+    """
+    Inserts or updates patch reference data in patch_ref table.
+    """
+    query = '''
+    INSERT INTO patch_ref (patch_id, name, date)
+    VALUES (?, ?, ?)
+    ON CONFLICT(patch_id) DO UPDATE SET
+        name=excluded.name,
+        date=excluded.date
+    '''
+    data = [(p.get('id'), p.get('name'), p.get('date')) for p in patches if p.get('id') is not None]
+    if conn is not None:
+        conn.executemany(query, data)
+    else:
+        with get_db_connection() as c:
+            c.executemany(query, data)
+            c.commit()
+

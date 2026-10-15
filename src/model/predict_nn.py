@@ -5,6 +5,7 @@ import argparse
 import torch
 from typing import List, Dict, Any, Optional, Union
 
+from ..config import Config
 from .neural_network import DotaWinPredictorNN
 from ..features.neural_features import NeuralFeatureEncoder
 from .neural_dataset import collate_dota_batch
@@ -147,7 +148,7 @@ def main():
     parser.add_argument("--dire", nargs='+', help="Heróis Dire (5 nomes ou IDs)")
     parser.add_argument("--rad-bans", nargs='+', help="Bans Radiant (opcional)")
     parser.add_argument("--dire-bans", nargs='+', help="Bans Dire (opcional)")
-    parser.add_argument("--patch", type=int, default=59, help="ID do patch")
+    parser.add_argument("--patch", type=int, default=Config.TARGET_PATCH, help=f"ID do patch (default: {Config.TARGET_PATCH})")
     parser.add_argument("--json", type=str, help="Caminho para arquivo JSON de payload")
     args = parser.parse_args()
 
@@ -161,7 +162,7 @@ def main():
         dire = data.get('dire_heroes', [])
         rbans = data.get('radiant_bans', [])
         dbans = data.get('dire_bans', [])
-        patch = data.get('patch_id', 59)
+        patch = data.get('patch_id', Config.TARGET_PATCH)
         rad_p = data.get('rad_players', [])
         dire_p = data.get('dire_players', [])
     else:

@@ -108,6 +108,13 @@ def collate_dota_batch(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
     else:
         target = torch.zeros(B, dtype=torch.float32)
 
+    # 9. Composition Delta: [B, 11]
+    has_comp = 'composition_delta' in batch[0] and batch[0]['composition_delta'] is not None
+    if has_comp:
+        composition_delta = torch.tensor([s['composition_delta'] for s in batch], dtype=torch.float32)
+    else:
+        composition_delta = torch.zeros((B, 11), dtype=torch.float32)
+
     return {
         'picks': picks,
         'bans': bans,
@@ -118,7 +125,8 @@ def collate_dota_batch(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         'skill_masks': skill_masks,
         'patch': patch,
         'target': target,
-        'match_ids': match_ids
+        'match_ids': match_ids,
+        'composition_delta': composition_delta
     }
 
 

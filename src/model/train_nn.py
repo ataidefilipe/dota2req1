@@ -15,6 +15,7 @@ from .neural_dataset import create_data_loaders
 from .neural_network import DotaWinPredictorNN
 from .calibration import TemperatureScaler
 from ..config import Config
+from ..features.composition_features import FEATURE_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,7 @@ def train_neural_network(
         'hero_dim': 32,
         'patch_dim': 8,
         'rank_dim': 8,
+        'comp_dim': len(FEATURE_NAMES),
         'dropout': dropout
     }
 
@@ -133,7 +135,7 @@ def train_neural_network(
         for batch in train_loader:
             batch_dev = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
             
-            # Aumento de dados por simetria (inverte lados Radiant e Dire e o target)
+            # Aumento de dados por simetria (inverte lados Radiant e Dire, target e sinal do delta de composição)
             if augment_symmetry:
                 swapped = {
                     'picks': torch.stack([batch_dev['picks'][:, 1], batch_dev['picks'][:, 0]], dim=1),
@@ -145,7 +147,8 @@ def train_neural_network(
                     'skill_masks': torch.stack([batch_dev['skill_masks'][:, 1], batch_dev['skill_masks'][:, 0]], dim=1),
                     'patch': batch_dev['patch'],
                     'target': 1.0 - batch_dev['target'],
-                    'match_ids': batch_dev['match_ids']
+                    'match_ids': batch_dev['match_ids'],
+                    'composition_delta': -batch_dev['composition_delta'] if 'composition_delta' in batch_dev else None
                 }
                 train_batch = {
                     k: torch.cat([batch_dev[k], swapped[k]], dim=0) if isinstance(batch_dev[k], torch.Tensor) else batch_dev[k]

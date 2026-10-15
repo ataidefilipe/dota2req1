@@ -48,7 +48,10 @@ data/*.sqlite-wal
 
 # Processed Data Artifacts (gerados pelos pipelines)
 data/processed/
-data/processed_neural/*.joblib
+data/processed_patch59/
+data/processed_neural/
+data/processed_neural_patch59/
+scratch/
 
 # Pesos binários pesados de modelos (manter metadados JSON)
 models/*.joblib

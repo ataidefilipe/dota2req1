@@ -12,6 +12,7 @@ class Config:
     
     # Use absolute path if possible or relative to execution dir
     SQLITE_PATH = os.getenv("SQLITE_PATH", "./data/opendota.sqlite")
+    TARGET_PATCH = int(os.getenv("TARGET_PATCH", "60"))
     
     PUBLICMATCHES_MIN_RANK = int(os.getenv("PUBLICMATCHES_MIN_RANK", "70"))
     PUBLICMATCHES_MAX_RANK = os.getenv("PUBLICMATCHES_MAX_RANK", None) # Optional

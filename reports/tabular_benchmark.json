@@ -1,0 +1,30 @@
+{
+  "lr_c0.1_base": {
+    "train_log_loss": 0.5816,
+    "test_log_loss": 0.7178,
+    "test_roc_auc": 0.5553,
+    "test_brier_score": 0.2601,
+    "test_accuracy": 0.5508
+  },
+  "lr_c0.1_comp": {
+    "train_log_loss": 0.4687,
+    "test_log_loss": 0.5375,
+    "test_roc_auc": 0.8065,
+    "test_brier_score": 0.1803,
+    "test_accuracy": 0.7269
+  },
+  "lr_c1.0_base": {
+    "train_log_loss": 0.529,
+    "test_log_loss": 0.8637,
+    "test_roc_auc": 0.5484,
+    "test_brier_score": 0.3005,
+    "test_accuracy": 0.535
+  },
+  "lr_c1.0_comp": {
+    "train_log_loss": 0.3971,
+    "test_log_loss": 0.6269,
+    "test_roc_auc": 0.7744,
+    "test_brier_score": 0.2056,
+    "test_accuracy": 0.6975
+  }
+}

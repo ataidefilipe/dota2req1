@@ -7,6 +7,7 @@ import joblib
 from typing import List, Dict, Any, Optional, Tuple
 from ..config import Config
 from ..db.repo import get_db_connection
+from .composition_features import CompositionFeatureExtractor, CompositionScaler, FEATURE_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,13 @@ class NeuralFeatureEncoder:
     - Mapeia patch_id para tokens contíguos (MISSING=0, UNK=1).
     - Mapeia rank_tier para tokens categóricos (MISSING=0, UNK=1).
     - Normaliza computed_mmr com média, desvio e clipping calculados estritamente no treino.
+    - Extrai features de composição de time e escalona com CompositionScaler.
     """
     PAD_TOKEN = 0
     UNK_TOKEN = 1
     MISSING_TOKEN = 0
 
-    def __init__(self):
+    def __init__(self, constants_dir: str = 'data/constants'):
         self.hero_to_idx: Dict[int, int] = {}
         self.idx_to_hero: Dict[int, int] = {}
         self.patch_to_idx: Dict[int, int] = {}
@@ -32,6 +34,9 @@ class NeuralFeatureEncoder:
         self.mmr_std: float = 1.0
         self.mmr_q01: float = 0.0
         self.mmr_q99: float = 8000.0
+
+        self.comp_extractor = CompositionFeatureExtractor(constants_dir=constants_dir)
+        self.comp_scaler = CompositionScaler()
 
         self.fitted: bool = False
 
@@ -103,11 +108,24 @@ class NeuralFeatureEncoder:
             self.mmr_q01 = 0.0
             self.mmr_q99 = 8000.0
 
+        # Ajustar CompositionScaler (RMS sem subtrair média para preservar inversão)
+        train_deltas = []
+        for m in train_matches:
+            rad_raw = [h for h in (m.get('rad_picks') or []) if h is not None]
+            dire_raw = [h for h in (m.get('dire_picks') or []) if h is not None]
+            if len(rad_raw) == 5 and len(dire_raw) == 5:
+                train_deltas.append(self.comp_extractor.transform(rad_raw, dire_raw))
+            else:
+                train_deltas.append(np.zeros(len(FEATURE_NAMES), dtype=np.float32))
+
+        if train_deltas:
+            self.comp_scaler.fit(np.array(train_deltas, dtype=np.float32))
+
         self.fitted = True
         logger.info(
             f"Encoder ajustado: {len(self.hero_to_idx)} tokens de heróis, "
             f"{len(self.patch_to_idx)} tokens de patches, {len(self.rank_to_idx)} tokens de ranks. "
-            f"MMR: média={self.mmr_mean:.1f}, std={self.mmr_std:.1f}"
+            f"MMR: média={self.mmr_mean:.1f}, std={self.mmr_std:.1f} | Comp Scaler: {len(FEATURE_NAMES)} features."
         )
         return self
 
@@ -195,7 +213,7 @@ class NeuralFeatureEncoder:
         y = match.get('radiant_win')
         target = float(1.0 if y else 0.0) if y is not None else None
 
-        return {
+        res = {
             'match_id': match.get('match_id'),
             'start_time': match.get('start_time'),
             'rad_picks': rad_picks,
@@ -216,6 +234,21 @@ class NeuralFeatureEncoder:
             'target': target
         }
 
+        # 6. Composition Features Delta
+        rad_raw = [h for h in (match.get('rad_picks') or []) if h is not None]
+        dire_raw = [h for h in (match.get('dire_picks') or []) if h is not None]
+        if len(rad_raw) == 5 and len(dire_raw) == 5:
+            raw_delta = self.comp_extractor.transform(rad_raw, dire_raw)
+            if self.comp_scaler.fitted:
+                scaled_delta = self.comp_scaler.transform(raw_delta.reshape(1, -1))[0]
+            else:
+                scaled_delta = raw_delta
+            res['composition_delta'] = scaled_delta.tolist()
+        else:
+            res['composition_delta'] = [0.0] * len(FEATURE_NAMES)
+
+        return res
+
     def save(self, filepath: str):
         data = {
             'hero_to_idx': self.hero_to_idx,
@@ -228,7 +261,8 @@ class NeuralFeatureEncoder:
             'mmr_q99': self.mmr_q99,
             'num_heroes': len(self.hero_to_idx),
             'num_patches': len(self.patch_to_idx),
-            'num_ranks': len(self.rank_to_idx)
+            'num_ranks': len(self.rank_to_idx),
+            'comp_scale': self.comp_scaler.scale_.tolist() if self.comp_scaler.fitted else None
         }
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as f:
@@ -255,6 +289,9 @@ class NeuralFeatureEncoder:
         encoder.mmr_std = data['mmr_std']
         encoder.mmr_q01 = data['mmr_q01']
         encoder.mmr_q99 = data['mmr_q99']
+        if data.get('comp_scale'):
+            encoder.comp_scaler.scale_ = np.array(data['comp_scale'], dtype=np.float32)
+            encoder.comp_scaler.fitted = True
         encoder.fitted = True
         return encoder
 
@@ -272,12 +309,13 @@ def extract_raw_matches_from_db(db_path: str = None, patch_id: Optional[int] = N
         query_matches = """
             SELECT match_id, radiant_win, patch_id, start_time, duration, dataset
             FROM matches
+            WHERE duration >= 1800 AND game_mode = 2 AND radiant_win IS NOT NULL
         """
         params = []
         if patch_id is not None:
-            query_matches += " WHERE patch_id = ?"
+            query_matches += " AND patch_id = ?"
             params.append(patch_id)
-        query_matches += " ORDER BY start_time ASC"
+        query_matches += " ORDER BY start_time ASC, match_id ASC"
         matches_rows = conn.execute(query_matches, params).fetchall()
         if not matches_rows:
             logger.warning("Nenhuma partida encontrada no banco.")
