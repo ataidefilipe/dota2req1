@@ -1,10 +1,10 @@
 {
-  "n_samples": 3208,
-  "n_train": 2566,
-  "n_test": 642,
-  "train_log_loss": 0.4793,
-  "test_log_loss": 0.5819,
-  "test_roc_auc": 0.7661,
-  "test_brier_score": 0.1983,
-  "test_accuracy": 0.6916
+  "n_samples": 3212,
+  "n_train": 2569,
+  "n_test": 643,
+  "train_log_loss": 0.4792,
+  "test_log_loss": 0.5866,
+  "test_roc_auc": 0.7621,
+  "test_brier_score": 0.2,
+  "test_accuracy": 0.6874
 }

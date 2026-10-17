@@ -1,30 +1,30 @@
 {
   "lr_c0.1_base": {
-    "train_log_loss": 0.5972,
-    "test_log_loss": 0.7328,
-    "test_roc_auc": 0.5415,
-    "test_brier_score": 0.2662,
-    "test_accuracy": 0.5327
+    "train_log_loss": 0.5969,
+    "test_log_loss": 0.7352,
+    "test_roc_auc": 0.539,
+    "test_brier_score": 0.2672,
+    "test_accuracy": 0.5397
   },
   "lr_c0.1_comp": {
-    "train_log_loss": 0.4793,
-    "test_log_loss": 0.5819,
-    "test_roc_auc": 0.7661,
-    "test_brier_score": 0.1983,
-    "test_accuracy": 0.6916
+    "train_log_loss": 0.4792,
+    "test_log_loss": 0.5866,
+    "test_roc_auc": 0.7621,
+    "test_brier_score": 0.2,
+    "test_accuracy": 0.6874
   },
   "lr_c1.0_base": {
-    "train_log_loss": 0.5648,
-    "test_log_loss": 0.8559,
-    "test_roc_auc": 0.5444,
-    "test_brier_score": 0.3,
-    "test_accuracy": 0.5343
+    "train_log_loss": 0.5645,
+    "test_log_loss": 0.8616,
+    "test_roc_auc": 0.5406,
+    "test_brier_score": 0.3018,
+    "test_accuracy": 0.5334
   },
   "lr_c1.0_comp": {
-    "train_log_loss": 0.4304,
-    "test_log_loss": 0.6935,
-    "test_roc_auc": 0.7414,
-    "test_brier_score": 0.2247,
-    "test_accuracy": 0.6822
+    "train_log_loss": 0.4305,
+    "test_log_loss": 0.7028,
+    "test_roc_auc": 0.7365,
+    "test_brier_score": 0.2275,
+    "test_accuracy": 0.675
   }
 }
