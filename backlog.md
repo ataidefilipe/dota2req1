@@ -315,13 +315,58 @@ Para considerar uma tarefa concluída:
 
 ---
 
+# Milestone M9 — Engenharia de Domínio e Superação de 0.80 AUC (Etapas 1, 2 e 3) [CONCLUÍDO]
 
-# Itens deliberadamente fora do MVP (para evitar over-engineering)
+### B38 — Etapa 1: Confrontos Diretos 1v1 e Mecânicas de Combate [CONCLUÍDO]
+* **Objetivo:** Extrair matriz de matchups 1v1 dos 127 heróis com suavização Bayesiana ($C=20$) e indicadores de BKB-pierce, strong dispel e hard save (15 features).
+* **Resultado:** Anti-simetria perfeita validada. Test ROC-AUC saltou para 0.7797 e Acurácia para 70.20%.
 
-* Modelos avançados (GBM/NN), tuning sistemático.
-* Feature de ordem de draft (sequência) como sinal.
-* Uso de `team_id`/`player_id` como feature (guardar para análise; não entra no baseline).
-* Serviço online, APIs próprias, agendamento automático.
+### B39 — Etapa 2: Sinergias Intra-Equipe (Química de Aliados) [CONCLUÍDO]
+* **Objetivo:** Processar 1.600.000 pares de aliados de 80k partidas públicas do OpenDota para derivar `avg_synergy`, `max_synergy` e `min_synergy` (18 features).
+* **Resultado:** Test Log Loss caiu para 0.5577 e Brier Score para 0.1888.
+
+### B40 — Etapa 3: Curvas de Duração e Escalonamento Temporal [CONCLUÍDO]
+* **Objetivo:** Mapear win rates dos 127 heróis por faixa de tempo para extrair `early_power`, `late_power` e `scaling_factor` (21 features).
+* **Resultado:** Quebra histórica da barreira de 0.80 AUC: Regressão Logística atingiu **0.8065 ROC-AUC** e Rede Neural PyTorch atingiu **74.77% de Acurácia**.
 
 ---
+
+# Milestone M10 — Teoria dos Jogos, Análise de Odds (+EV) e Gestão de Banca [CONCLUÍDO]
+
+### B41 — Remoção de Vigorish e Cálculo de Valor Esperado (+EV) [CONCLUÍDO]
+* **Objetivo:** Criar `src/betting/engine.py` para descontar margem das casas e calcular $+EV = (P_{\text{modelo}} \times \text{Odd}) - 1$ e Edge real.
+* **Resultado:** Implementado e validado por testes unitários com filtro de oportunidade mínima ($+EV \ge 3\%$).
+
+### B42 — Critério de Kelly Fracionário e Proteção de Capital [CONCLUÍDO]
+* **Objetivo:** Implementar dimensionamento ótimo $f^* = \frac{+EV}{O - 1}$ com perfil conservador Quarter Kelly (25%) e teto de risco de 5% da banca.
+* **Resultado:** Algoritmo matemático implementado impedindo apostas com EV negativo ou sobre-exposição.
+
+### B43 — Simulação Estocástica de Monte Carlo [CONCLUÍDO]
+* **Objetivo:** Simular 200 apostas em 100 trajetórias simultâneas para projetar crescimento mediano, pior drawdown e probabilidade de perda >50%.
+* **Resultado:** Implementado com plotagem interativa de curvas de patrimônio no Streamlit.
+
+---
+
+# Milestone M11 — Redesign de UX do Dashboard e Deploy em Produção [CONCLUÍDO]
+
+### B44 — Overhaul de UX do Dashboard Streamlit [CONCLUÍDO]
+* **Objetivo:** Transformar `src/dashboard/app.py` colocando o Simulador Hero no topo, seleção mútua exclusiva, barra Tug-of-War, 4 Pilares de Explicabilidade e calculadora de apostas embutida.
+* **Resultado:** Concluído com storytelling interativo em 4 abas e resolução dinâmica de paths.
+
+### B45 — Expansão e Blindagem da Suíte de Testes [CONCLUÍDO]
+* **Objetivo:** Expandir testes unitários automatizados para cobrir todas as novas funcionalidades matemáticas e de apostas.
+* **Resultado:** 34 testes automatizados em `pytest` passando em < 7 segundos com 100% de sucesso.
+
+### B46 — Preparação para Nuvem, Docker, Procfile e GitHub [CONCLUÍDO]
+* **Objetivo:** Criar `Dockerfile`, `Procfile`, `.streamlit/config.toml`, flexibilizar `requirements.txt`, rastrear pesos pré-treinados e sincronizar no GitHub público.
+* **Resultado:** Repositório público sincronizado em `ataidefilipe/dota2req1` pronto para deploy em Streamlit Cloud, Docker, Railway e Render.
+
+---
+
+# Itens Futuros para Expansão (Pós-Produção)
+
+* Motor de Recomendação em Tempo Real ("5th Pick Suggestion Engine").
+* Ingestão contínua programada via agendador de tarefas / cron.
+* Suporte a handicap de mapas (Bo3 / Bo5).
+
 
