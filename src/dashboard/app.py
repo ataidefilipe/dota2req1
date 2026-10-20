@@ -519,12 +519,13 @@ def main():
         st.caption("Evolução rigorosa no conjunto de teste congelado (20% das partidas mais recentes, nunca vistas pelo treino):")
 
         evolution_df = pd.DataFrame([
-            {"Iteração": "1. Baseline (Picks/Bans puros)", "Features": "509 esparsas", "ROC-AUC": "0.5553", "Acurácia": "55.08%", "Log Loss": "0.7178", "Brier Score": "0.2601"},
-            {"Iteração": "2. NN V1 (Cooldowns & Atributos)", "Features": "11 comp", "ROC-AUC": "0.5595", "Acurácia": "55.20%", "Log Loss": "0.6875", "Brier Score": "0.2472"},
-            {"Iteração": "3. Etapa 1 (Matchups H2H + Mecânicas)", "Features": "15 comp", "ROC-AUC": "0.7849", "Acurácia": "71.17%", "Log Loss": "0.5608", "Brier Score": "0.1895"},
-            {"Iteração": "4. Etapa 2 (Sinergias Intra-Equipe)", "Features": "18 comp", "ROC-AUC": "0.7819", "Acurácia": "70.87%", "Log Loss": "0.5577", "Brier Score": "0.1888"},
-            {"Iteração": "5. Etapa 3 (Curvas de Duração & Timing)", "Features": "21 comp", "ROC-AUC": "0.7953", "Acurácia": "74.77%", "Log Loss": "0.5510", "Brier Score": "0.1844"},
-            {"Iteração": "★ Regressão Logística Calibrada (Etapa 3)", "Features": "509 + 21 comp", "ROC-AUC": "0.8065", "Acurácia": "72.69%", "Log Loss": "0.5375", "Brier Score": "0.1803"}
+            {"Iteração": "1. Baseline (Picks/Bans puros)", "Features": "509 esparsas", "Amostra": "2.211", "ROC-AUC": "0.5553", "Acurácia": "55.08%", "Log Loss": "0.7178", "Brier Score": "0.2601"},
+            {"Iteração": "2. NN V1 (Cooldowns & Atributos)", "Features": "11 comp", "Amostra": "3.449", "ROC-AUC": "0.5595", "Acurácia": "55.20%", "Log Loss": "0.6875", "Brier Score": "0.2472"},
+            {"Iteração": "3. Etapa 1 (Matchups H2H + Mecânicas)", "Features": "15 comp", "Amostra": "2.211", "ROC-AUC": "0.7849", "Acurácia": "71.17%", "Log Loss": "0.5608", "Brier Score": "0.1895"},
+            {"Iteração": "4. Etapa 2 (Sinergias Intra-Equipe)", "Features": "18 comp", "Amostra": "2.211", "ROC-AUC": "0.7819", "Acurácia": "70.87%", "Log Loss": "0.5577", "Brier Score": "0.1888"},
+            {"Iteração": "5. Etapa 3 (Curvas de Duração & Timing)", "Features": "21 comp", "Amostra": "2.211", "ROC-AUC": "0.8065", "Acurácia": "74.77%", "Log Loss": "0.5375", "Brier Score": "0.1803"},
+            {"Iteração": "6. Regressão Logística (Base 4.267)", "Features": "509 + 21 comp", "Amostra": "4.267", "ROC-AUC": "0.7432", "Acurácia": "67.80%", "Log Loss": "0.6028", "Brier Score": "0.2071"},
+            {"Iteração": "★ Rede Neural Calibrada (Base 4.267)", "Features": "Attention + 21 comp", "Amostra": "4.267", "ROC-AUC": "0.7438", "Acurácia": "67.86%", "Log Loss": "0.5976", "Brier Score": "0.2050"}
         ])
         st.dataframe(evolution_df, use_container_width=True)
 

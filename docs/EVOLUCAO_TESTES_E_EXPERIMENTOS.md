@@ -224,6 +224,8 @@ Para avaliar o valor intrínseco das 11 features de composição de forma linear
 | **NN (Etapa 2 - Sinergias Intra-Equipe)** | 60 | 2.211 | Attention + 18 comp | 0.7819 | 70.87% | 0.5577 | 0.1888 |
 | **LR (Etapa 3 - Curvas de Duração e Timing)** | 60 | 2.211 | 509 + 21 comp | **0.8065** | **72.69%** | **0.5375** | **0.1803** |
 | **NN (Etapa 3 - Curvas de Duração e Timing)** | 60 | 2.211 | Attention + 21 comp | **0.7953** | **74.77%** | **0.5510** | **0.1844** |
+| **LR (Escala Final 100% Pro - 854 Teste)** | 60 | 4.267 | 509 + 21 comp | `0.7432` | `67.80%` | `0.6028` | `0.2071` |
+| **NN (Escala Final 100% Pro - 641 Teste)** | 60 | 4.267 | Attention + 21 comp | `0.7438` | `67.86%` | `0.5976` | `0.2050` |
 
 ---
 
