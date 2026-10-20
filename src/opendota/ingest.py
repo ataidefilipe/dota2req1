@@ -285,7 +285,7 @@ def ingest_patch_pro_window(patch_id: int = None, limit: int = 600):
     try:
         for mid in to_fetch_ordered:
             total_scanned += 1
-            if fetch_and_save_match(client, mid, dataset, target_patch=patch_id):
+            if fetch_and_save_match(client, mid, dataset, target_patch=patch_id, max_leaver_status=1):
                 matches_saved += 1
                 logger.info(f"[+] Match pro {mid} salvo com sucesso! (Salvas: {matches_saved}/{limit} | Escaneadas: {total_scanned}/{len(to_fetch_ordered)})")
             else:
