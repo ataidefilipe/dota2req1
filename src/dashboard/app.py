@@ -498,30 +498,30 @@ def main():
                 )
         with tl3:
             with st.container(border=True):
-                st.markdown("###### Fase 3: Escala Real & O Segredo do 'GG' (4.267 Jogos)")
+                st.markdown("###### Fase 3: Escala Real & O Segredo do 'GG' (4.593 Jogos)")
                 st.write(
                     "**O mistério:** Mil jogos profissionais estavam sendo barrados pelos filtros. Descobrimos que pros dão *disconnect* 5s antes do trono cair após digitar 'GG' (`leaver_status=1`).\n\n"
-                    "**A consolidação:** Destravamos **100% do cenário pro do Patch 60** (4.267 jogos) e colocamos o modelo na prova de fogo mais difícil: **854 partidas cegas de teste**, cravando **~68% de acurácia real** e calibração quase perfeita ($T=1.04$)."
+                    "**A consolidação:** Destravamos **100% do cenário pro do Patch 60** e expandimos a base com ligas comunitárias para **4.593 jogos**. Submetemos os modelos a testes cegos massivos (919 jogos para Logística e 690 para Rede Neural), cravando **~67% de acurácia estável** e mantendo **+16% de vantagem pura** sobre qualquer baseline ingênuo."
                 )
 
         st.markdown("---")
 
         # 2. O que Aprendemos sobre o Jogo (Os Pesos do Dota 2)
         st.markdown("##### 2. 🎮 O que a IA Aprendeu sobre Como se Ganha no Dota 2")
-        st.caption("Ao analisar mais de 4.200 partidas competitivas, o modelo atribuiu pesos matemáticos para cada aspecto de um draft. Estas são as 4 leis descobertas pela máquina:")
+        st.caption("Ao analisar 4.593 partidas competitivas do Patch 60, o modelo atribuiu pesos matemáticos para cada aspecto de um draft. Estas são as 4 leis descobertas pela máquina:")
 
         g_col1, g_col2 = st.columns([1.2, 1])
         with g_col1:
             st.markdown(
                 """
-                1. **⚔️ Anular o inimigo vale 7x mais do que qualquer atributo isolado (`Peso: +1.7841`):**
+                1. **⚔️ Anular o inimigo vale 7x mais do que qualquer atributo isolado (`Peso: +1.8479`):**
                    Ter respostas diretas (counters 1v1) contra as peças do adversário é, disparado, o fator número 1 de vitória no Dota 2 competitivo.
-                2. **⏱️ Quem escala pro Late Game tem o relógio a seu favor (`Peso: +0.2380`):**
+                2. **⏱️ Quem escala pro Late Game tem o relógio a seu favor (`Peso: +0.2437`):**
                    Times de pressão precoce (*zoo/push*) estão 'no relógio': se cometerem um único erro na subida de *High Ground*, a equipe com melhor curva de escalonamento pós-45 minutos vira o jogo com alta probabilidade.
-                3. **🤝 Química aliada sustenta o time; ganância de farm destrói (`Peso: +0.1434`):**
-                   Duplas com sinergia comprovada elevam o piso da equipe, enquanto acumular múltiplos carregadores disputando o mesmo ouro do mapa derruba a eficiência.
-                4. **🏃 Mobilidade é o atributo físico rei (`Peso: +0.1111`):**
-                   Velocidade de movimento base importa mais para vencer do que vida ou mana inicial, pois define quem chega primeiro nas runas, quem rotaciona melhor e quem escolhe as lutas.
+                3. **🏃 Mobilidade e Espaçamento vencem lutas (`Peso: +0.1367`):**
+                   Velocidade de movimento base dita quem chega primeiro nas runas de poder, quem rotaciona melhor nos flancos e quem escolhe quando lutar ou recuar.
+                4. **🤝 Química aliada sustenta o time (`Peso: +0.1296`):**
+                   Duplas com sinergia histórica comprovada elevam o piso da equipe, combinando controle de grupo (*lockdown*) com dano explosivo coordenado.
                 """
             )
         with g_col2:
@@ -529,12 +529,12 @@ def main():
                 "Fator Tático do Draft": [
                     "1. Vantagem de Counter 1v1",
                     "2. Escalonamento Late Game",
-                    "3. Sinergia entre Aliados",
-                    "4. Velocidade de Movimento",
+                    "3. Velocidade de Movimento",
+                    "4. Sinergia entre Aliados",
                     "5. Cooldown de Ultimates",
                     "6. Poder de Push de Torres"
                 ],
-                "Impacto no Modelo (Peso)": [1.7841, 0.2380, 0.1434, 0.1111, 0.1026, 0.0543]
+                "Impacto no Modelo (Peso)": [1.8479, 0.2437, 0.1367, 0.1296, 0.1123, 0.0682]
             }).set_index("Fator Tático do Draft")
             st.bar_chart(weights_chart_df, height=290)
 
@@ -623,7 +623,9 @@ def main():
             {"Iteração": "4. Etapa 2 (Sinergias Intra-Equipe)", "Features": "18 comp", "Amostra": "2.211", "ROC-AUC": "0.7819", "Acurácia": "70.87%", "Log Loss": "0.5577", "Brier Score": "0.1888"},
             {"Iteração": "5. Etapa 3 (Curvas de Duração & Timing)", "Features": "21 comp", "Amostra": "2.211", "ROC-AUC": "0.8065", "Acurácia": "74.77%", "Log Loss": "0.5375", "Brier Score": "0.1803"},
             {"Iteração": "6. Regressão Logística (Base 4.267)", "Features": "509 + 21 comp", "Amostra": "4.267", "ROC-AUC": "0.7432", "Acurácia": "67.80%", "Log Loss": "0.6028", "Brier Score": "0.2071"},
-            {"Iteração": "★ Rede Neural Calibrada (Base 4.267)", "Features": "Attention + 21 comp", "Amostra": "4.267", "ROC-AUC": "0.7438", "Acurácia": "67.86%", "Log Loss": "0.5976", "Brier Score": "0.2050"}
+            {"Iteração": "7. Rede Neural Calibrada (Base 4.267)", "Features": "Attention + 21 comp", "Amostra": "4.267", "ROC-AUC": "0.7438", "Acurácia": "67.86%", "Log Loss": "0.5976", "Brier Score": "0.2050"},
+            {"Iteração": "8. Regressão Logística (Base 4.593)", "Features": "509 + 21 comp", "Amostra": "4.593", "ROC-AUC": "0.7324", "Acurácia": "65.94%", "Log Loss": "0.6169", "Brier Score": "0.2129"},
+            {"Iteração": "★ Rede Neural Calibrada (Base 4.593)", "Features": "Attention + 21 comp", "Amostra": "4.593", "ROC-AUC": "0.7356", "Acurácia": "67.10%", "Log Loss": "0.6083", "Brier Score": "0.2094"}
         ])
         st.dataframe(evolution_df, use_container_width=True)
 
@@ -636,7 +638,7 @@ def main():
             st.write("Inverter os lados (Radiant ↔ Dire) inverte rigorosamente o sinal da predição: $P(\text{Rad}) + P(\text{Dire}) = 1.00$.")
         with col_proof3:
             st.markdown("###### 🎯 Calibração de Probabilidade")
-            st.write("Temperatura calibrada ($T=1.0409$) garantindo que uma predição de 70% reflete uma frequência de vitória real de 7 em cada 10 partidas.")
+            st.write("Temperatura calibrada ($T=1.3102$) garantindo que as probabilidades brutas da rede sejam refinadas para o cálculo de valor esperado (+EV) no Critério de Kelly.")
 
     # Aba 3: Teoria dos Jogos & Gestão de Banca
     with story_tab3:
